@@ -1,0 +1,6 @@
+unset xtics;unset ytics;unset ztics
+unset border
+set view equal xyz
+set label "x" at 1,0,0
+set label "y" at 0,1,0
+set label "z" at 0,0,1

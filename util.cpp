@@ -363,6 +363,7 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     //PROPERTIES OF THE PARTICLE
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     beta=ALPHA*QPR/(RHODUST*Rs[i]);
+    /*
     fprintf(stdout,"i = %d:\n",i);
     fprintf(stdout,"\tRHODUST = %e UM/UL^3 = %e kg/m^3\n",
 	    RHODUST,RHODUST*UM/(UL*UL*UL));
@@ -371,6 +372,7 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     fprintf(stdout,"\tbeta = %e\n",
 	    beta);
     exit(0);
+    */
     
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //GRAVITATIONAL FORCE FROM THE SUN
@@ -389,7 +391,7 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     rad[2]=-beta*gs[2];
 
     //Poynting-Robertson
-
+    
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //EVAPORATION RECOIL
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

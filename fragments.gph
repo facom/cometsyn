@@ -1,0 +1,12 @@
+file='comet-fragments-snapshots.dat'
+title='t = -0.78 yrs, d = 3.46 AU, D = 3.46 AU'
+nfrag=100
+nlarge=20
+ndebris=80
+tini=-1.000000e+00
+UM=1.988920e+30
+UL=1.495979e+11
+UT=3.155760e+07
+Rmax=1.089583e+07
+Rc=1.000000e+06
+rf=3.684031e+03

@@ -100,6 +100,9 @@ char State[][10]={"XPOS","YPOS","ZPOS","XVEL","YVEL","ZVEL"};
 //ROTATION MATRIX
 enum Axis {AXIS,XAXIS,YAXIS,ZAXIS};
 
+//TYPE OF FRAGMENT
+enum Fragment {FRAGMENT,LARGE,DEBRIS};
+
 //////////////////////////////////////////////////////////////////////////////////
 //ROUTINES
 //////////////////////////////////////////////////////////////////////////////////
@@ -333,9 +336,18 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
 {
   int i,j,k;
   double *ps=(double*) params;
-  double *Rs=ps+1;
+  double *Rs=ps+2;
   int nsys=(int)ps[0];
+  int nlarge=(int)ps[1];
   int nfrag=nsys/6-1;
+  int ndebris=nfrag-nlarge;
+
+  /*
+  fprintf(stdout,"Number of fragments: %d\n",nfrag);
+  fprintf(stdout,"Large fragments: %d\n",nlarge);
+  fprintf(stdout,"Debris: %d\n",ndebris);
+  exit(0);
+  //*/
 
   //////////////////////////////////////////
   //ZEROED dydt
@@ -362,17 +374,22 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //PROPERTIES OF THE PARTICLE
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    beta=ALPHA*QPR/(RHODUST*Rs[i]);
+    if(i>0)
+      beta=ALPHA*QPR/(RHODUST*Rs[i-1]);
+    else
+      beta=0;
     /*
-    fprintf(stdout,"i = %d:\n",i);
-    fprintf(stdout,"\tRHODUST = %e UM/UL^3 = %e kg/m^3\n",
-	    RHODUST,RHODUST*UM/(UL*UL*UL));
-    fprintf(stdout,"\tRs = %e UL = %e m\n",
-	    Rs[i],Rs[i]*UL);
-    fprintf(stdout,"\tbeta = %e\n",
-	    beta);
-    exit(0);
-    */
+    if(i>nlarge){
+      fprintf(stdout,"i = %d:\n",i);
+      fprintf(stdout,"\tRHODUST = %e UM/UL^3 = %e kg/m^3\n",
+	      RHODUST,RHODUST*UM/(UL*UL*UL));
+      fprintf(stdout,"\tRs = %e UL = %e m\n",
+	      Rs[i],Rs[i]*UL);
+      fprintf(stdout,"\tbeta = %e\n",
+	      beta);
+      exit(0);
+    }
+    //*/
     
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //GRAVITATIONAL FORCE FROM THE SUN
@@ -412,6 +429,15 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     dydt[3+k]=gs[0]+rad[0]+gb[0]+evap[0];
     dydt[4+k]=gs[1]+rad[1]+gb[1]+evap[1];
     dydt[5+k]=gs[2]+rad[2]+gb[2]+evap[2];
+
+    /*
+    fprintf(stdout,"Particle: %d\n",i);
+    fprintf_vec(stdout,"%e ",dydt+k,6);
+    fprintf_vec(stdout,"%e ",gs,3);
+    fprintf_vec(stdout,"%e ",rad,3);
+    fprintf_vec(stdout,"%e ",gb,3);
+    fprintf_vec(stdout,"%e ",evap,3);
+    */
   }
 
   return 0;

@@ -1,0 +1,21 @@
+load "fragments.gph"
+#size=30*rf/Rc
+size=5
+nfrag=nlarge+ndebris
+
+#unset xtics;unset ytics;unset ztics
+#unset border
+set view 0,0
+
+set view equal xyz
+set label "x" at Rmax,0,0
+set label "y" at 0,Rmax,0
+set label "z" at 0,0,Rmax
+
+set title 'Core fragments:'.title
+splot \
+file u ($2*UL):($3*UL):($4*UL) every ::::nlarge-1 not w p ps size pt 7 lt 1,\
+file u ($2*UL):($3*UL):($4*UL) every ::nlarge t 'Debris' w p ps 1 pt 7 lt 3,\
+'axes.pos' u ($1*Rmax):($2*Rmax):($3*Rmax) w l not
+
+pause -1

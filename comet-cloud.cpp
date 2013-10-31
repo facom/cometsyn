@@ -6,7 +6,7 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //VARIABLES
   //////////////////////////////////////////
-  int i,j,k;
+  int i,j,k,l;
   double xaxis[]={1,0,0},yaxis[]={0,1,0},zaxis[]={0,0,1};
   double xE[6];
   double t,tini,tint,dt;
@@ -19,14 +19,19 @@ int main(int argc,char *argv[])
   double RHA[3][3],IRHA[3][3];
   double eE[NELEMS],normE[3];
   double Rc,Prot,rho,Mc;
+
   int nfrag;
-  double mp;
+  int nlarge;
+  int ndebris;
+
+  double mp,Rp;
   double dx[3];
+  double* type;
   double* Ms;
   double* Rs;
   double** xs;
   double r,rp,phi,theta,v;
-  int ifrag;
+  int ilarge;
   bool qfrag;
   int nsys;
   double* y;
@@ -70,15 +75,18 @@ int main(int argc,char *argv[])
   Rc=10E3 /*m*/ /UL;
   Prot=17*HOURS /*secs*/ /UT;
   Mc=4*PI/3*Rc*Rc*Rc*RHODUST; 
-  nfrag=100;
-  mp=0.1*Mc/nfrag;
-  
+  nlarge=20; //Number of large particles
+  ndebris=80; //Number of debris particles
+  if(nlarge>0) mp=Mc/nlarge; //Average mass of large fragments
+  else mp=0;
+  Rp=pow((mp/RHODUST)/(4*PI/3),1./3);
+
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //INTEGRATION
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   tini=-1.0;//yrs before periapse
   tint=1.5; //yrs 
-  dt=eC[PER]/1000;
+  dt=eC[PER]/500;
 
   //////////////////////////////////////////
   //COMETARY ORBIT
@@ -130,28 +138,41 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   ffrag=fopen("comet-fragments.dat","w");
 
+  //TOTAL FRAGMENTS
+  nfrag=nlarge+ndebris;
+
   //INFORMATION ABOUT FRAGMENTS
   Ms=realAlloc(nfrag);
   Rs=realAlloc(nfrag);
+  type=realAlloc(nfrag);//Type of fragment: 1-large, 2-debris
   xs=stateAlloc(nfrag);
 
   fprintf(stdout,"Fragments:\n");
   fprintf(stdout,"\tNumber: %d\n",nfrag);
-  fprintf(stdout,"\tAverage mass per fragment: %e\n",mp);
+  fprintf(stdout,"\tAverage mass of large fragments: %e\n",mp);
   
   fprintf(stdout,"\n");
 
-  ifrag=0;
+  ilarge=-1;
   for(i=0;i<nfrag;i++){
     fprintf(stdout,"\tFragment %d:\n",i);
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //PHYSICAL PROPERTIES
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Ms[i]=mp;
-    Rs[i]=pow(Ms[i]/RHODUST/(4*PI/3),1./3);
+    if(i<nlarge){
+      type[i]=LARGE;
+      Ms[i]=mp;
+      Rs[i]=pow(Ms[i]/RHODUST/(4*PI/3),1./3);
+      ilarge++;
+    }
+    else{
+      type[i]=DEBRIS;
+      Rs[i]=5.0E-3 /*m*/ /UL;
+      Ms[i]=4*PI/3*RHODUST*Rs[i]*Rs[i]*Rs[i];
+    }
+    fprintf(stdout,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
     fprintf(stdout,"\t\tMass: %e UM = %e kg\n",Ms[i],Ms[i]*UM);
-    fprintf(stdout,"\t\tRadius: %e Rc\n",Rs[i]/Rc);
-    fprintf(stdout,"\t\tVerify mass: %e UM\n",RHODUST*4*PI/3*Rs[i]*Rs[i]*Rs[i]);
+    fprintf(stdout,"\t\tRadius: %e UL = %e m = %e Rc\n",Rs[i],Rs[i]*UL,Rs[i]/Rc);
 
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //INITIAL POSITION
@@ -159,14 +180,21 @@ int main(int argc,char *argv[])
     qfrag=false;
     k=0;
     do{
-      r=Rc*pow(randReal(),1./3);
+      //Generate position
+      fprintf(stdout,"\t\t\tGenerating %d random position...\n",k);
+      r=1.5*Rc*pow(randReal(),1./3);
       phi=2*M_PI*randReal();
       theta=acos(1-2*randReal());
+
+      //State vector: cartesian position
       vpack_c(r*sin(theta)*cos(phi),
 	      r*sin(theta)*sin(phi),
 	      r*cos(theta),
 	      xs[i]);
-      for(j=0;j<ifrag;j++){
+      
+      //Check if particle coincide with other particles
+      fprintf(stdout,"\t\t\t\tComparing with %d other particles...\n",ilarge);
+      for(j=0;j<ilarge;j++){
 	vsub_c(xs[i],xs[j],dx);
 	if(vnorm_c(dx)<(Rs[i]+Rs[j])){
 	  qfrag=true;
@@ -180,8 +208,6 @@ int main(int argc,char *argv[])
 	    k,r/Rc,theta,phi);
     fprintf(stdout,"\t\tCartesian coordinates: ");
     fprintf_vec(stdout,"%e ",xs[i],3);
-
-    ifrag++;
 
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //INITIAL VELOCITY
@@ -204,9 +230,28 @@ int main(int argc,char *argv[])
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //SAVE FRAGMENT
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    fprintf_state(ffrag,"%-+25.17e",xs[i]);
+    fprintf(ffrag,"%e ",type[i]);
+    fprintf_state(ffrag,"%-+25.17e ",xs[i]);
+    //scanf("%d",&l);
+    //if(ilarge==nlarge-1) break;
   }
   fclose(ffrag);
+
+  file fpfrag=fopen("fragments.gph","w");
+  fprintf(fpfrag,
+	  "file='comet-fragments.dat'\n"
+	  "title='t = %.2f yrs'\n"
+	  "nfrag=%d\n"
+	  "nlarge=%d\n"
+	  "ndebris=%d\n"
+	  "tini=%e\n"
+	  "UM=%e\n"
+	  "UL=%e\n"
+	  "UT=%e\n"
+	  "Rmax=%e\n"
+	  "Rc=%e\n"
+	  "rf=%e\n",tini,nfrag,nlarge,ndebris,tini,UM,UL,UT,Rc*UL,Rc*UL,Rp*UL);
+  fclose(fpfrag);
 
   //////////////////////////////////////////
   //INITIAL CONDITION COMET
@@ -261,9 +306,10 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //INTEGRATE ORBITS
   //////////////////////////////////////////
-  double* params=realAlloc(nfrag+1);
+  double* params=realAlloc(nfrag+2);
   params[0]=nsys;
-  memcpy(params+1,Rs,nfrag*sizeof(double));
+  params[1]=nlarge;
+  memcpy(params+2,Rs,nfrag*sizeof(double));
 
   gsl_odeiv2_system sys={gravSystem,NULL,nsys,params};
   gsl_odeiv2_driver* driver=

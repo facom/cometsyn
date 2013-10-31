@@ -1,6 +1,6 @@
 """
 COMET DESINTEGRATION
-PLOTTING SCRIPT
+OBSERVATIONS SCRIPTS
 """
 from matplotlib import pyplot as plt,patches as pat,cm
 from mpl_toolkits.mplot3d import Axes3D

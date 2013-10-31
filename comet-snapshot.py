@@ -35,7 +35,6 @@ print "\tDebris:%d"%ndebris
 ts=orbdata[:,0]
 xcm=orbdata[:,1:7]
 xs=[]
-print orbdata.shape
 for i in xrange(0,nfrag):
     k=6*(i+1)+1
     xs+=[orbdata[:,k:k+6]]
@@ -59,13 +58,16 @@ rcm=xcm[iobs,0:6]
 d=NORM(rcm[0:3])
 D=d
 f=open("comet-fragments-snapshots.dat","w")
-rmax=0
 
+rmax=0
+vmax=0
 for i in xrange(0,nfrag):
     rs=xs[i,iobs,0:6]
     rf=rs-rcm
     rfnorm=NORM(rf[0:3])
+    vnorm=NORM(rf[3:6])
     rmax=max(rmax,rfnorm)
+    vmax=max(vmax,vnorm)
     type=1.0
     if i>=nlarge:type=2.0
     f.write("%e %-+23.17e %-+23.17e %-+23.17e %-+23.17e %-+23.17e %-+23.17e\n"%(type,
@@ -76,8 +78,10 @@ for i in xrange(0,nfrag):
                                                                                 rf[4],
                                                                                 rf[5]))
 f.close()
-rmax=rmax*config['UL']
-print "Maximum distance: %e"%rmax
+rmax*=config['UL']
+vmax*=config['UL']/config['UT']
+print "Maximum distance: %e km"%(rmax/1E3)
+print "Maximum distance: %e km/s"%(vmax/1E3)
 
 #############################################################
 #SAVE fragments.gph

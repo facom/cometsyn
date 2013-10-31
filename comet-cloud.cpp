@@ -81,6 +81,29 @@ int main(int argc,char *argv[])
   else mp=0;
   Rp=pow((mp/RHODUST)/(4*PI/3),1./3);
 
+  fprintf(stdout,"Cometary properties:\n");
+  fprintf(stdout,"\tCore radius: %e UL = %e km\n",Rc,Rc*UL/1E3);
+  fprintf(stdout,"\tRotation period: %e UT = %e h\n",Prot,Prot*UT/3600);
+  fprintf(stdout,"\tAverage density: %e UM/UL^3 = %e kg/m^3\n",RHODUST,RHODUST*UM/(UL*UL*UL));
+  fprintf(stdout,"\tMass: %e UM = %e ton\n",Mc,Mc*UM/1E3);
+  fprintf(stdout,"\tLarge fragments: %d\n",nlarge);
+  fprintf(stdout,"\tAverage mass of fragments: %e UM = %e ton\n",mp,mp*UM/1E3);
+  fprintf(stdout,"\tAverage radius of fragments: %e UL = %e km\n",Rp,Rp*UL/1E3);
+  
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //DERIVED PHYSICAL PROPERTIES
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  double vesc,vtan;
+
+  vesc=sqrt(2*GPROG*Mc/Rc);
+  vtan=2*PI*Rc/Prot;
+
+  fprintf(stdout,"Cometary derived properties:\n");
+  fprintf(stdout,"\tComet escape velocity: %e UL/UT = %e km/s\n",vesc,vesc*UL/UT/1E3);
+  fprintf(stdout,"\tTangential velocity: %e UL/UT = %e km/s\n",vtan,vtan*UL/UT/1E3);
+  exit(0);
+
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //INTEGRATION
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -167,7 +190,7 @@ int main(int argc,char *argv[])
     }
     else{
       type[i]=DEBRIS;
-      Rs[i]=5.0E-3 /*m*/ /UL;
+      Rs[i]=1.0E-4 /*m*/ /UL;
       Ms[i]=4*PI/3*RHODUST*Rs[i]*Rs[i]*Rs[i];
     }
     fprintf(stdout,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);

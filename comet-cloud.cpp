@@ -1,4 +1,8 @@
 #define RANSEED 1
+#define SUN_FORCE
+#define FRAG_FORCE
+#define RAD_FORCE
+//#define EVAP_FORCE
 #include <util.cpp>
 
 int main(int argc,char *argv[])
@@ -6,6 +10,8 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //VARIABLES
   //////////////////////////////////////////
+  double rmax,vmax;
+  double vesc,vtan,Pmin,fc;
   int i,j,k,l;
   double xaxis[]={1,0,0},yaxis[]={0,1,0},zaxis[]={0,0,1};
   double xE[6];
@@ -71,20 +77,40 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //COMETARY PHYSICAL PROPERTIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //DENSITY OF ROCKY FRAGMENTS
   RHODUST=2E3 /*kg/m^3*//(UM/(UL*UL*UL));
+  
+  //MEAN DENSITY OF COMET CORE WHILE HEALTHY
+  RHOCOMET=0.6E3 /*kg/m^3*//(UM/(UL*UL*UL));
+
+  //FRACTION OF HEALTHY MASS IN ROCKS+DUST
+  FR=0.5;
+
+  //CORE TOTAL RADIUS 
   Rc=10E3 /*m*/ /UL;
-  Prot=17*HOURS /*secs*/ /UT;
-  Mc=4*PI/3*Rc*Rc*Rc*RHODUST; 
-  nlarge=20; //Number of large particles
-  ndebris=80; //Number of debris particles
-  if(nlarge>0) mp=Mc/nlarge; //Average mass of large fragments
+
+  //SIZE OF FRAGMENT AND DEBRIS REGION
+  fc=1.5;
+
+  //PERIOD OF ROTATION
+  Prot=3.8*HOURS /*secs*/ /UT;
+
+  //HEALTHY CORE MASS
+  Mc=4*PI/3*Rc*Rc*Rc*RHOCOMET; 
+
+  //NUMBER OF FRAGMENTS AND DEBRIS 
+  nlarge=1; //Number of large particles
+  ndebris=1; //Number of debris particles
+
+  //AVERAGE MASS AND RADIUS OF ROCKY+DUST FRAGMENTS
+  if(nlarge>0) mp=FR*Mc/nlarge; //Average mass of large fragments
   else mp=0;
   Rp=pow((mp/RHODUST)/(4*PI/3),1./3);
 
   fprintf(stdout,"Cometary properties:\n");
-  fprintf(stdout,"\tCore radius: %e UL = %e km\n",Rc,Rc*UL/1E3);
-  fprintf(stdout,"\tRotation period: %e UT = %e h\n",Prot,Prot*UT/3600);
   fprintf(stdout,"\tAverage density: %e UM/UL^3 = %e kg/m^3\n",RHODUST,RHODUST*UM/(UL*UL*UL));
+  fprintf(stdout,"\tRotation period: %e UT = %e h\n",Prot,Prot*UT/3600);
+  fprintf(stdout,"\tCore radius: %e UL = %e km\n",Rc,Rc*UL/1E3);
   fprintf(stdout,"\tMass: %e UM = %e ton\n",Mc,Mc*UM/1E3);
   fprintf(stdout,"\tLarge fragments: %d\n",nlarge);
   fprintf(stdout,"\tAverage mass of fragments: %e UM = %e ton\n",mp,mp*UM/1E3);
@@ -93,23 +119,26 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //DERIVED PHYSICAL PROPERTIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  
-  double vesc,vtan;
-
-  vesc=sqrt(2*GPROG*Mc/Rc);
+  vesc=sqrt(2*GPROG*FR*Mc/Rc);
   vtan=2*PI*Rc/Prot;
+  Pmin=sqrt(3*PI/(2*GPROG*FR*RHOCOMET));
 
   fprintf(stdout,"Cometary derived properties:\n");
+  fprintf(stdout,"\tMinimum rotation period for breakup: %e UT = %e h\n",Pmin,Pmin*UT/3600);
   fprintf(stdout,"\tComet escape velocity: %e UL/UT = %e km/s\n",vesc,vesc*UL/UT/1E3);
   fprintf(stdout,"\tTangential velocity: %e UL/UT = %e km/s\n",vtan,vtan*UL/UT/1E3);
-  exit(0);
+  //exit(0);
 
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //INTEGRATION
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   tini=-1.0;//yrs before periapse
-  tint=1.5; //yrs 
-  dt=eC[PER]/500;
+  tint=1.5; //yrs of integration time
+  dt=eC[PER]/1000;//Time step
+  /*
+  tint=0.5;
+  dt=1/365.25/100;
+  */
 
   //////////////////////////////////////////
   //COMETARY ORBIT
@@ -176,8 +205,26 @@ int main(int argc,char *argv[])
   
   fprintf(stdout,"\n");
 
-  ilarge=-1;
-  for(i=0;i<nfrag;i++){
+  vmax=rmax=0;
+
+  //CENTRAL FRAGMENT
+  i=0;
+  type[i]=1;
+  Ms[i]=mp;
+  Rs[i]=pow(Ms[i]/RHODUST/(4*PI/3),1./3);
+  fprintf(stdout,"\tFragment %d:\n",i);
+  fprintf(stdout,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
+  fprintf(stdout,"\t\tMass: %e UM = %e kg\n",Ms[i],Ms[i]*UM);
+  fprintf(stdout,"\t\tRadius: %e UL = %e m = %e Rc\n",Rs[i],Rs[i]*UL,Rs[i]/Rc);
+  fprintf(stdout,"\t\tCartesian coordinates: ");
+  fprintf_vec(stdout,"%e ",xs[i],3);
+  fprintf(stdout,"\t\tState vector: ");
+  fprintf_state(stdout,"%e ",xs[i]);
+  fprintf(ffrag,"%e ",type[i]);
+  fprintf_state(ffrag,"%-+25.17e ",xs[i]);
+  ilarge=0;
+
+  for(i=1;i<nfrag;i++){
     fprintf(stdout,"\tFragment %d:\n",i);
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //PHYSICAL PROPERTIES
@@ -190,7 +237,7 @@ int main(int argc,char *argv[])
     }
     else{
       type[i]=DEBRIS;
-      Rs[i]=1.0E-4 /*m*/ /UL;
+      Rs[i]=1.0E-3 /*m*/ /UL;
       Ms[i]=4*PI/3*RHODUST*Rs[i]*Rs[i]*Rs[i];
     }
     fprintf(stdout,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
@@ -205,7 +252,7 @@ int main(int argc,char *argv[])
     do{
       //Generate position
       fprintf(stdout,"\t\t\tGenerating %d random position...\n",k);
-      r=1.5*Rc*pow(randReal(),1./3);
+      r=fc*Rc*pow(randReal(),1./3);
       phi=2*M_PI*randReal();
       theta=acos(1-2*randReal());
 
@@ -228,9 +275,10 @@ int main(int argc,char *argv[])
       k++;
     }while(qfrag);
     fprintf(stdout,"\t\tSpherical coordinates (trials %d): (%e,%e,%e)\n",
-	    k,r/Rc,theta,phi);
+	    k,r*UL,theta,phi);
     fprintf(stdout,"\t\tCartesian coordinates: ");
     fprintf_vec(stdout,"%e ",xs[i],3);
+    rmax=r>rmax?r:rmax;
 
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //INITIAL VELOCITY
@@ -241,10 +289,11 @@ int main(int argc,char *argv[])
     //TANGENTIAL VELOCITY
     v=2*PI*rp/Prot;
     fprintf(stdout,"\t\tTangential velocity: %e UL/UT = %e m/s\n",v,v*UL/UT);
-    
+    vmax=v>vmax?v:vmax;
+
     //CARTESIAN VELOCITY
-    vpack_c(v*cos(phi),
-	    v*sin(phi),
+    vpack_c(-v*sin(phi),
+	    v*cos(phi),
 	    0.0,
 	    xs[i]+3);
     fprintf(stdout,"\t\tState vector: ");
@@ -276,6 +325,10 @@ int main(int argc,char *argv[])
 	  "rf=%e\n",tini,nfrag,nlarge,ndebris,tini,UM,UL,UT,Rc*UL,Rc*UL,Rp*UL);
   fclose(fpfrag);
 
+  fprintf(stdout,"Maximum distance: %e\n",rmax*UL);
+  fprintf(stdout,"Maximum velocity: %e\n",vmax*UL/UT/1E3);
+  //exit(0);
+
   //////////////////////////////////////////
   //INITIAL CONDITION COMET
   //////////////////////////////////////////
@@ -303,11 +356,16 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //PLACE PARTICLES IN THE HELIOCENTRIC RF
   //////////////////////////////////////////
+  //fprintf(stdout,"Particles in Heliocentric RF:\n");
   for(i=0;i<nfrag;i++){
     //HELIOCENTRIC RF
     rotateState(IRHA,xs[i],xs[i]);
     //TRANSLATION
     stateAdd(xs[i],xcm,xs[i]);
+    /*
+    fprintf(stdout,"Particle %d:",i);
+    fprintf_vec(stdout,"%-+23.17e ",xs[i],6);
+    */
   }
 
   //////////////////////////////////////////
@@ -347,8 +405,14 @@ int main(int argc,char *argv[])
 
   t=0;
   fprintf(stdout,"Integration:\n");
+  int n=0;
+  int nsteps=(int)(tint/dt);
+  int nscreen=nsteps/10;
+  fprintf(stdout,"Number of steps:%d\n",nsteps);
   do{
-    fprintf(stdout,"\tt = %e\n",t);
+    if((n%nscreen)==0)
+      fprintf(stdout,"\tStep %d: t = %e\n",n,t);
+    n++;
 
     //HELIOCENTRIC ORBIT
     fprintf(fint,"%-23.17e ",t);

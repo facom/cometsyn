@@ -6,6 +6,7 @@ splot \
 "sun.pos" w p ps 4 not,\
 "axes.pos" w l ls 4 not,\
 "comet-orbit.dat" u 2:3:4 w p t 'Comet CM',\
+"comet-orbit.dat" u 14:15:16 w p t 'Comet particle',\
 "comet-earth.dat" u 2:3:4 w p t 'Earth CM',\
 "comet-axis.dat" u 1:2:3:4:5:6 w vec ls 3 not
 

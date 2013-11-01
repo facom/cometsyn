@@ -1,12 +1,12 @@
-file='comet-fragments-snapshots.dat'
-title='t = -1.00 yrs, d = 4.09 AU, D = 4.09 AU'
-nfrag=100
-nlarge=20
-ndebris=80
+file='comet-fragments.dat'
+title='t = -1.00 yrs'
+nfrag=2
+nlarge=1
+ndebris=1
 tini=-1.000000e+00
 UM=1.988920e+30
 UL=1.495979e+11
 UT=3.155760e+07
-Rmax=1.499944e+04
-Rc=1.000000e+09
-rf=3.684031e+03
+Rmax=1.000000e+04
+Rc=1.000000e+04
+rf=5.313293e+03

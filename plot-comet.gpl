@@ -1,0 +1,9 @@
+UL=1.496E11
+set view equal xyz
+
+splot \
+"comet-orbit.dat" u (($2-$2)*UL):(($3-$3)*UL):(($4-$4)*UL) t 'Comet CM' w p ps 2 pt 7 lt 3,\
+"comet-orbit.dat" u (($14-$2)*UL):(($15-$3)*UL):(($16-$4)*UL) w l ls 1 t 'Comet Particle'
+
+#Pause
+pause -1

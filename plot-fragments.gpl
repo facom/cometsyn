@@ -2,7 +2,7 @@ load "fragments.gph"
 #size=30*rf/Rc
 size=5
 nfrag=nlarge+ndebris
-facvel=2
+facvel=0.5
 
 #unset xtics;unset ytics;unset ztics
 #unset border
@@ -17,8 +17,8 @@ set title 'Core fragments:'.title
 splot \
 file u ($2*UL):($3*UL):($4*UL) every ::::nlarge-1 not w p ps size pt 7 lt 1,\
 file u ($2*UL):($3*UL):($4*UL) every ::nlarge t 'Debris' w p ps 1 pt 7 lt 3,\
-file u ($2*UL):($3*UL):($4*UL):($5*UL/UT*Rmax/facvel):($6*UL/UT*Rmax/facvel):($7*UL/UT*Rmax/facvel) every ::::nlarge-1 t 'Large vel.' w vec lt 1,\
-file u ($2*UL):($3*UL):($4*UL):($5*UL/UT*Rmax/facvel):($6*UL/UT*Rmax/facvel):($7*UL/UT*Rmax/facvel) every ::nlarge t 'Debris vel.' w vec lt 3,\
+file u ($2*UL):($3*UL):($4*UL):($5*UL/UT*Rmax*facvel):($6*UL/UT*Rmax*facvel):($7*UL/UT*Rmax*facvel) every ::::nlarge-1 t 'Large vel.' w vec lt 1,\
+file u ($2*UL):($3*UL):($4*UL):($5*UL/UT*Rmax*facvel):($6*UL/UT*Rmax*facvel):($7*UL/UT*Rmax*facvel) every ::nlarge t 'Debris vel.' w vec lt 3,\
 'axes.pos' u ($1*Rmax):($2*Rmax):($3*Rmax) w l not
 
 pause -1

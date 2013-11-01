@@ -2,11 +2,10 @@ Synthetic Comet
 ToDo
 ==================================================
 
-P. Gravitation of large fragments.
+Pending
+=======
 
 P. Power law distribution of sizes of debris.
-
-P. Include Poynting-Robertson correction.
 
 P. Include evaporation recoil.
 
@@ -21,4 +20,24 @@ P. Include colisions and fusion of particles.
 
 P. Ephemeris of the Earth and Comet
 
-P. Calculate escape velocity from the debris zone
+P. Include mass in state vector.
+
+Done
+====
+
+D. Calculate escape velocity from the debris zone
+
+D. Gravitation of large fragments.
+
+D. Include Poynting-Robertson correction.
+
+Instruction to test particle orbits
+===================================
+
+Set nlarge = 1, ndebris = 1.
+
+Set tint = 0.1, dt = 1/365.25/100.
+
+Run program.
+
+Run gnuplot script: plot-comet.gpl

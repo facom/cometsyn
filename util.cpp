@@ -69,7 +69,7 @@ typedef FILE* file;
 
 real UL,UM,UT,GPROG;
 real ALPHA;
-real RHODUST;
+real RHODUST,RHOCOMET,FR;
 
 //ELEMENTS
 /*
@@ -334,13 +334,16 @@ double randReal(void)
 
 int gravSystem(double t,const double y[],double dydt[],void* params)
 {
-  int i,j,k;
+  int i,j,k,kj;
   double *ps=(double*) params;
   double *Rs=ps+2;
+  double Mp;
   int nsys=(int)ps[0];
   int nlarge=(int)ps[1];
   int nfrag=nsys/6-1;
   int ndebris=nfrag-nlarge;
+  const double *ri,*rj;
+  double Rij[3];
 
   /*
   fprintf(stdout,"Number of fragments: %d\n",nfrag);
@@ -365,7 +368,7 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
   //////////////////////////////////////////
   //dvdt
   //////////////////////////////////////////
-  double beta,D,D3,M,R;
+  double beta,D,Dsoft,epsoft,D3,M,R;
   double gs[3],rad[3],evap[3],gb[3];
   for(i=0;i<=nfrag;i++){
     k=6*i;
@@ -390,39 +393,82 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
       exit(0);
     }
     //*/
-    
+
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //GRAVITATIONAL FORCE FROM THE SUN
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #ifdef SUN_FORCE
     gs[0]=-GPROG*y[0+k]/D3;
     gs[1]=-GPROG*y[1+k]/D3;
     gs[2]=-GPROG*y[2+k]/D3;
+    #else
+    memset(gs,0,3*sizeof(gs[0]));
+    #endif
+    
+    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    //GRAVITATIONAL FORCE FROM OTHER BODIES
+    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #ifdef FRAG_FORCE
+    gb[0]=0.0;
+    gb[1]=0.0;
+    gb[2]=0.0;
+    for(j=1;j<=nlarge&&i>0;j++){
+      if(i==j) continue;
+      epsoft=0.0;
+      Mp=4*PI/3*Rs[j-1]*Rs[j-1]*Rs[j-1]*RHODUST;
+      kj=6*j;
+      ri=y+k;
+      rj=y+kj;
+      vsub_c(ri,rj,Rij);
+      D=vnorm_c(Rij);
+      Dsoft=sqrt(D*D+epsoft*epsoft);
+      D3=Dsoft*Dsoft*Dsoft;
+      gb[0]+=-GPROG*Mp*Rij[0]/D3;
+      gb[1]+=-GPROG*Mp*Rij[1]/D3;
+      gb[2]+=-GPROG*Mp*Rij[2]/D3;
+
+      /*
+      fprintf(stdout,"Force on %d from %d...\n",i,j);
+      fprintf(stdout,"Rs:");fprintf(stdout,"%e\n",Rs[j-1]);
+      fprintf(stdout,"Ms:");fprintf(stdout,"%e\n",Mp);
+      fprintf(stdout,"ri:");fprintf_vec(stdout,"%-+23.17e ",ri,3);
+      fprintf(stdout,"rj:");fprintf_vec(stdout,"%-+23.17e ",rj,3);
+      fprintf(stdout,"D:");fprintf(stdout,"%e km\n",D*UL);
+      fprintf(stdout,"Dsoft:");fprintf(stdout,"%e\n",Dsoft);
+      fprintf(stdout,"D3:");fprintf(stdout,"%e\n",D3);
+      fprintf(stdout,"Force:");fprintf_vec(stdout,"%e ",gb,3);
+      //*/
+    }
+    #else
+    memset(gb,0,3*sizeof(gb[0]));
+    #endif
     
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //RADIATION FORCES
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //See de Pater & Lissauer, Sec. 2.7
     //Radiation Pressure
+    #ifdef RAD_FORCE
     rad[0]=-beta*gs[0];
     rad[1]=-beta*gs[1];
     rad[2]=-beta*gs[2];
 
     //Poynting-Robertson
+    #else
+    memset(rad,0,3*sizeof(rad[0]));
+    #endif
     
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //EVAPORATION RECOIL
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #ifdef EVAP_FORCE
     evap[0]=0.0;
     evap[1]=0.0;
     evap[2]=0.0;
+    #else
+    memset(evap,0,3*sizeof(evap[0]));
+    #endif
 
-    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    //GRAVITATIONAL FORCE FROM OTHER BODIES
-    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    gb[0]=0.0;
-    gb[1]=0.0;
-    gb[2]=0.0;
-    
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //TOTAL
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -431,13 +477,21 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     dydt[5+k]=gs[2]+rad[2]+gb[2]+evap[2];
 
     /*
-    fprintf(stdout,"Particle: %d\n",i);
-    fprintf_vec(stdout,"%e ",dydt+k,6);
-    fprintf_vec(stdout,"%e ",gs,3);
-    fprintf_vec(stdout,"%e ",rad,3);
-    fprintf_vec(stdout,"%e ",gb,3);
-    fprintf_vec(stdout,"%e ",evap,3);
-    */
+    if(i>nlarge){
+      fprintf(stdout,"Particle: %d\n",i);
+      fprintf(stdout,"Sun gravitatinal force:");
+      fprintf_vec(stdout,"%e ",gs,3);
+      fprintf(stdout,"Radiative force:");
+      fprintf_vec(stdout,"%e ",rad,3);
+      fprintf(stdout,"Fragments gravitational force:");
+      fprintf_vec(stdout,"%e ",gb,3);
+      fprintf(stdout,"Evaporation recoil force:");
+      fprintf_vec(stdout,"%e ",evap,3);
+      fprintf(stdout,"Total force:");
+      fprintf_vec(stdout,"%e ",dydt+k,6);
+      exit(0);
+    }
+    //*/
   }
 
   return 0;

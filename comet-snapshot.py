@@ -53,6 +53,7 @@ if iobs>=norb:
 
 t=ts[iobs]
 print "Snaptshot: %d, t - tper = %.2f yrs"%(iobs,t+tini)
+print "Integration time: %.2f yrs = %.2f days"%(t,t*365.25)
 
 rcm=xcm[iobs,0:6]
 d=NORM(rcm[0:3])
@@ -81,7 +82,7 @@ f.close()
 rmax*=config['UL']
 vmax*=config['UL']/config['UT']
 print "Maximum distance: %e km"%(rmax/1E3)
-print "Maximum distance: %e km/s"%(vmax/1E3)
+print "Maximum separation velocity: %e km/s"%(vmax/1E3)
 
 #############################################################
 #SAVE fragments.gph

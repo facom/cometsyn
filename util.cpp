@@ -70,6 +70,7 @@ typedef FILE* file;
 real UL,UM,UT,GPROG;
 real ALPHA;
 real RHODUST,RHOCOMET,FR;
+int NPARTICLES;
 
 //ELEMENTS
 /*
@@ -94,25 +95,35 @@ char Elements[][10]={"RP","ECC","INC","LNODE","ARGP","M0","T0","MU",
 		     "TPER","PER","AXISZ","AXISXY"};
 
 //STATE VECTOR
-enum StateEnum {XPOS,YPOS,ZPOS,XVEL,YVEL,ZVEL,ENDSTATE};
-char State[][10]={"XPOS","YPOS","ZPOS","XVEL","YVEL","ZVEL"};
+#define NSTATE 7
+
+enum StateEnum {XPOS,YPOS,ZPOS,XVEL,YVEL,ZVEL,MASS,ENDSTATE};
+char State[][10]={"XPOS","YPOS","ZPOS","XVEL","YVEL","ZVEL","MASS"};
 
 //ROTATION MATRIX
-enum Axis {AXIS,XAXIS,YAXIS,ZAXIS};
+enum Axis {_AXIS_,XAXIS,YAXIS,ZAXIS};
 
 //TYPE OF FRAGMENT
-enum Fragment {FRAGMENT,LARGE,DEBRIS};
+enum Fragment {_FRAGMENT_,LARGE,DEBRIS};
 
 //////////////////////////////////////////////////////////////////////////////////
 //ROUTINES
 //////////////////////////////////////////////////////////////////////////////////
-void fprintf_vec(FILE* stream,const char* fmt,const double x[],int end,bool qlabel=true,int ini=0)
+void vxk_c(double v[],double k,double vout[])
+{
+  vout[0]=k*v[0];
+  vout[1]=k*v[1];
+  vout[2]=k*v[2];
+}
+
+void fprintf_vec(FILE* stream,const char* fmt,const double x[],int end,bool qlabel=true,int ini=0,bool endline=true)
 {
   for(int i=ini;i<end;i++){
     if(qlabel) fprintf(stream,"%d:",i);
     fprintf(stream,fmt,x[i]);
   }
-  fprintf(stream,"\n");
+  if(endline)
+    fprintf(stream,"\n");
 }
 
 void fprintf_mat(FILE* stream,const char* fmt,const double x[][3])
@@ -140,11 +151,9 @@ void fprintf_elem(FILE *stream,const char* fmt,const double e[],bool qname=false
 void fprintf_state(FILE *stream,const char* fmt,const double x[],bool qname=false)
 {
   double state;
-  StateEnum ix;
-  for(int i=XPOS;i!=ENDSTATE;i++){
-    ix=(StateEnum)i;
-    if(qname) fprintf(stream,"%s:",State[ix]);
-    fprintf(stream,fmt,x[ix]);
+  for(int i=0;i<NSTATE;i++){
+    if(qname) fprintf(stream,"%s:",State[i]);
+    fprintf(stream,fmt,x[i]);
   }
   fprintf(stream,"\n");
 }
@@ -206,7 +215,7 @@ void rotateState(double R[3][3],double x[],double xr[])
 
 void copyState(double dest[],double origin[])
 {
-  memcpy(dest,origin,6*sizeof(double));
+  memcpy(dest,origin,NSTATE*sizeof(double));
 }
 
 void stateAdd(double x1[],double x2[],double s[])
@@ -223,7 +232,7 @@ void stateOrbit(double t,double e[],double x[])
 
 void orbitNormal(double e[],double n[])
 {
-  double x1[6],x2[6];
+  double x1[NSTATE],x2[NSTATE];
   double P=tOrbit(e);
   stateOrbit(e[TPER],e,x1);
   stateOrbit(e[TPER]+P/10.0,e,x2);
@@ -251,7 +260,7 @@ double** stateAlloc(int n)
   double** x;
   x=(double**)calloc(n,sizeof(double*));
   for(i=0;i<n;i++)
-    x[i]=(double*)calloc(6,sizeof(double));
+    x[i]=(double*)calloc(NSTATE,sizeof(double));
   return x;
 }
 
@@ -335,68 +344,64 @@ double randReal(void)
 int gravSystem(double t,const double y[],double dydt[],void* params)
 {
   int i,j,k,kj;
+
+  //INPUT PARAMETERS
   double *ps=(double*) params;
-  double *Rs=ps+2;
-  double Mp;
   int nsys=(int)ps[0];
   int nlarge=(int)ps[1];
-  int nfrag=nsys/6-1;
+  int nfrag=nsys/NSTATE-1;
   int ndebris=nfrag-nlarge;
-  const double *ri,*rj;
-  double Rij[3];
 
-  /*
-  fprintf(stdout,"Number of fragments: %d\n",nfrag);
-  fprintf(stdout,"Large fragments: %d\n",nlarge);
-  fprintf(stdout,"Debris: %d\n",ndebris);
-  exit(0);
-  //*/
+  //RADIUS AND MASSES OF FRAGMENTS
+  double *Rs=ps+2;
+  double *Ms=ps+2+nfrag;
+
+  double Mp;
+  const double *r,*v;
+  const double *ri,*rj;
+  double *dyjdt,*dyidt;
+  double Rij[3];
+  double beta,D,Dsoft,epsoft,D3,M,R;
+  double gs[]={0,0,0},rad[]={0,0,0},evap[]={0,0,0},gb[]={0,0,0};
+  double ur[3],ut[3],vr[3],vt[3],pf[3],vrmag=0,vtmag=0,fr=1,ft=0,gmag=0;
+  bool qcolision;
 
   //////////////////////////////////////////
-  //ZEROED dydt
+  //INITIALIZE: dx/dt = 0
   //////////////////////////////////////////
   memset(dydt,0,nsys*sizeof(dydt[0]));
-  
+
   //////////////////////////////////////////
-  //drdt
+  //dr_i/dt = v_i
   //////////////////////////////////////////
   for(i=0;i<=nfrag;i++){
-    k=6*i;
+    k=NSTATE*i;
     memcpy(dydt+k,y+k+3,3*sizeof(double));
   }
 
   //////////////////////////////////////////
-  //dvdt
+  //dv_i/dt
   //////////////////////////////////////////
-  double beta,D,Dsoft,epsoft,D3,M,R;
-  double gs[3],rad[3],evap[3],gb[3];
+ init:
   for(i=0;i<=nfrag;i++){
-    k=6*i;
-    D=vnorm_c(y+k);D3=D*D*D;
 
-    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    //PROPERTIES OF THE PARTICLE
-    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if(i>0)
-      beta=ALPHA*QPR/(RHODUST*Rs[i-1]);
-    else
-      beta=0;
-    /*
-    if(i>nlarge){
-      fprintf(stdout,"i = %d:\n",i);
-      fprintf(stdout,"\tRHODUST = %e UM/UL^3 = %e kg/m^3\n",
-	      RHODUST,RHODUST*UM/(UL*UL*UL));
-      fprintf(stdout,"\tRs = %e UL = %e m\n",
-	      Rs[i],Rs[i]*UL);
-      fprintf(stdout,"\tbeta = %e\n",
-	      beta);
-      exit(0);
+    //AVOID INTEGRATION OF PARTICLES ALREADY ABSORBED
+    if(i>0&&Ms[i-1]==0){
+      continue;
     }
-    //*/
+
+    qcolision=false;
+    k=NSTATE*i;
+
+    //DISTANCE TO SUN
+    D=vnorm_c(y+k);D3=D*D*D;
 
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //GRAVITATIONAL FORCE FROM THE SUN
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    gs[0]=0.0;
+    gs[1]=0.0;
+    gs[2]=0.0;
     #ifdef SUN_FORCE
     gs[0]=-GPROG*y[0+k]/D3;
     gs[1]=-GPROG*y[1+k]/D3;
@@ -414,13 +419,72 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     gb[2]=0.0;
     for(j=1;j<=nlarge&&i>0;j++){
       if(i==j) continue;
-      epsoft=0.0;
-      Mp=4*PI/3*Rs[j-1]*Rs[j-1]*Rs[j-1]*RHODUST;
-      kj=6*j;
+      kj=NSTATE*j;
       ri=y+k;
       rj=y+kj;
+      Mp=Ms[j-1];
+      epsoft=0.0;
+
+
+
       vsub_c(ri,rj,Rij);
       D=vnorm_c(Rij);
+
+      #ifdef ALLOW_COLISION
+      //COLISION!
+      if(D<(Rs[j-1]+Rs[i-1])){
+
+	//ANNOUNCE IT
+	fprintf(stdout,"\t\tParticle %d has collided with particle %d\n",i-1,j-1);
+	fprintf(stdout,"\t\t\tAbsorbed particle: %d, Ri = %e m, Mi = %e kg\n",i,Rs[i-1]*UL,Ms[i-1]*UM);
+	fprintf(stdout,"\t\t\tAbsorber fragment: %d, Rj = %e m, Mj = %e kg\n",j,Rs[j-1]*UL,Ms[j-1]*UM);
+	fprintf(stdout,"\t\t\tDistance: %e m < %e m\n",D*UL,(Rs[i-1]+Rs[j-1])*UL);
+
+	//RESET GRADIENT FOR COLLIDED PARTICLE
+	memset(dydt+k,0,NSTATE*sizeof(dydt[0]));
+
+	//CHANGE VELOCITY OF HIT PARTICLE
+	dyidt=dydt+k;
+	dyjdt=dydt+kj;
+
+	/*
+	if((i-1)<nlarge&&(j-1)<nlarge){
+
+	  fprintf(stdout,"Velocity of impactor(%d):",k);fprintf_vec(stdout,"%e ",ri+3,3);
+	  fprintf(stdout,"Velocity of hit before(%d):",kj);fprintf_vec(stdout,"%e ",rj+3,3);
+
+	  fprintf(stdout,"Gradient of impactor:");fprintf_vec(stdout,"%e ",dyidt,NSTATE);
+	  fprintf(stdout,"Gradient of hit before:");fprintf_vec(stdout,"%e ",dyjdt,NSTATE);
+	}
+	//*/
+
+	dyjdt[0]=(Ms[j-1]*rj[3]+Ms[i-1]*ri[3])/(Ms[j-1]+Ms[i-1]);
+	dyjdt[1]=(Ms[j-1]*rj[4]+Ms[i-1]*ri[4])/(Ms[j-1]+Ms[i-1]);
+	dyjdt[2]=(Ms[j-1]*rj[5]+Ms[i-1]*ri[5])/(Ms[j-1]+Ms[i-1]);
+	
+	//INCREASE MASS AND RADIUS CORRESPONDINGLY
+	Ms[j-1]+=Ms[i-1];
+	Rs[j-1]=pow(Ms[j-1]/(4*PI/3*RHODUST),1./3);
+
+	//SET TO ZERO MASS AND RADIUS OF IMPACTOR
+	Rs[i-1]=Ms[i-1]=0;
+
+	/*
+	if((i-1)<nlarge&&(j-1)<nlarge){
+	  fprintf(stdout,"Velocity of hit after:");fprintf_vec(stdout,"%e ",dyjdt,NSTATE);
+	  fprintf(stdout,"Radius after of particle hit: %e m\n",Rs[j-1]*UL);
+	  exit(0);
+	}
+	//*/
+
+
+	//REDUCE NUMBER OF PARTICLES
+	NPARTICLES--;
+
+	//RESET CALCULATION
+	goto init;
+      }
+      #endif
       Dsoft=sqrt(D*D+epsoft*epsoft);
       D3=Dsoft*Dsoft*Dsoft;
       gb[0]+=-GPROG*Mp*Rij[0]/D3;
@@ -442,22 +506,80 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     #else
     memset(gb,0,3*sizeof(gb[0]));
     #endif
-    
+
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //RADIATION FORCES
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //See de Pater & Lissauer, Sec. 2.7
-    //Radiation Pressure
-    #ifdef RAD_FORCE
+
+    #ifdef RADIATION_FORCE
+    if(i>0)
+      beta=ALPHA*QPR/(RHODUST*Rs[i-1]);
+    else
+      beta=0;
+    #ifdef PR_CORRECTION
+    //&&&&&&&&&&&&&&&&&&&&
+    //POYNTING-ROBERTSON
+    //&&&&&&&&&&&&&&&&&&&&
+    //Eqs. 2.49a,b, Pater-Lissauer
+    r=y+k;//Radius
+    v=y+k+3;//Velocity
+
+    //Radial velocity component
+    vhat_c(r,ur);
+    vrmag=vdot_c(v,ur);
+    vxk_c(ur,vrmag,vr);
+
+    //Tangential velocity component
+    vsub_c(v,vr,vt);
+    vhat_c(vt,ut);
+    vtmag=vnorm_c(vt);
+
+    //Radial correction
+    fr=(1-2*(fabs(vrmag)*UL/UT)/CLIGHT);
+    //Tangential correction
+    ft=(vtmag*UL/UT)/CLIGHT;
+    
+    //PR-correction
+    gmag=vnorm_c(gs);
+    rad[0]=beta*gmag*(fr*ur[0]-ft*ut[0]);
+    rad[1]=beta*gmag*(fr*ur[1]-ft*ut[1]);
+    rad[2]=beta*gmag*(fr*ur[2]-ft*ut[2]);
+
+    /*
+    if(i>nlarge){
+      fprintf(stdout,"r=");fprintf_vec(stdout,"%e ",r,3);
+      fprintf(stdout,"v=");fprintf_vec(stdout,"%e ",v,3);
+      fprintf(stdout,"ur=");fprintf_vec(stdout,"%e ",ur,3);
+      fprintf(stdout,"vrmag=");fprintf(stdout,"%e\n",vrmag);
+      fprintf(stdout,"vr=");fprintf_vec(stdout,"%e ",vr,3);
+      fprintf(stdout,"vt=");fprintf_vec(stdout,"%e ",vt,3);
+      fprintf(stdout,"vtmag=");fprintf(stdout,"%e\n",vtmag);
+      fprintf(stdout,"ut=");fprintf_vec(stdout,"%e ",ut,3);
+      fprintf(stdout,"fr=");fprintf(stdout,"%e\n",fr);
+      fprintf(stdout,"ft=");fprintf(stdout,"%e\n",ft);
+      fprintf(stdout,"rad=");fprintf_vec(stdout,"%e ",rad,3);
+      exit(0);
+    }
+    //*/
+    #else /*NO POYNTING-ROBERTSON CORRECTION*/
+    //&&&&&&&&&&&&&&&&&&&&
+    //RADIATION PRESSURE
+    //&&&&&&&&&&&&&&&&&&&&
     rad[0]=-beta*gs[0];
     rad[1]=-beta*gs[1];
     rad[2]=-beta*gs[2];
-
-    //Poynting-Robertson
+    #endif
     #else
     memset(rad,0,3*sizeof(rad[0]));
     #endif
-    
+    /*
+    if(i>nlarge){
+      fprintf(stdout,"rad=");fprintf_vec(stdout,"%e ",rad,3);
+      exit(0);
+    }
+    //*/
+
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //EVAPORATION RECOIL
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -488,7 +610,7 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
       fprintf(stdout,"Evaporation recoil force:");
       fprintf_vec(stdout,"%e ",evap,3);
       fprintf(stdout,"Total force:");
-      fprintf_vec(stdout,"%e ",dydt+k,6);
+      fprintf_vec(stdout,"%e ",dydt+k,NSTATE);
       exit(0);
     }
     //*/
@@ -502,7 +624,7 @@ void earthObservations(double t,double eE[],double eC[],double y[],double x[])
   int i,k;
   int nfrag;
   double RE[3][3];
-  double xE[6],xC[6],xCE[6];
+  double xE[NSTATE],xC[NSTATE],xCE[NSTATE];
   double xobs[3],yobs[3],zobs[3];
   double zaxis[]={0,0,1};
 
@@ -513,19 +635,13 @@ void earthObservations(double t,double eE[],double eC[],double y[],double x[])
   stateOrbit(t,eC,xC);
 
   //ROTATION MATRIX
-  vsubg_c(xC,xE,6,xCE);
+  vsubg_c(xC,xE,NSTATE,xCE);
   vpack_c(-xCE[0],-xCE[1],-xCE[2],zobs);
   vcrss_c(zaxis,zobs,xobs);
   twovec_c(xobs,XAXIS,zobs,ZAXIS,RE);
   
   //ROTATE POSITIONS
-  vsubg_c(y,xE,6,xCE);
+  vsubg_c(y,xE,NSTATE,xCE);
   rotateState(RE,xCE,x);
 }
 
-void vxk_c(double v[],double k,double vout[])
-{
-  vout[0]=k*v[0];
-  vout[1]=k*v[1];
-  vout[2]=k*v[2];
-}

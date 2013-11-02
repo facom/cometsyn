@@ -16,14 +16,31 @@ P. Calculate debris zone expansion velocity.
 
 P. Include mass variation for particles.
 
-P. Include colisions and fusion of particles.
-
 P. Ephemeris of the Earth and Comet
 
-P. Include mass in state vector.
+P. Disintegration mode:
+
+   * Purely rotational: all particles start with an initial velocity purely
+     rotational
+
+   * Rotational + Gas lifted debris: large fragments start with
+     initial velocity purely rotational but debris start with an
+     additional component due to gas lift.
 
 Done
 ====
+
+D. Make debris start from surface
+
+D. Include colisions and fusion of particles.
+
+D. Include Poynting-Robertson
+
+D. Include mass in state vector.
+
+D. Save trajectories individually
+
+D. Separate trajectories according to large and debris particles
 
 D. Calculate escape velocity from the debris zone
 
@@ -31,13 +48,3 @@ D. Gravitation of large fragments.
 
 D. Include Poynting-Robertson correction.
 
-Instruction to test particle orbits
-===================================
-
-Set nlarge = 1, ndebris = 1.
-
-Set tint = 0.1, dt = 1/365.25/100.
-
-Run program.
-
-Run gnuplot script: plot-comet.gpl

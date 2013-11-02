@@ -11,6 +11,7 @@ from os import system
 #############################################################
 #CONSTANTS
 #############################################################
+NSTATE=6
 NORM=linalg.norm
 
 #############################################################
@@ -36,8 +37,8 @@ ts=orbdata[:,0]
 xcm=orbdata[:,1:7]
 xs=[]
 for i in xrange(0,nfrag):
-    k=6*(i+1)+1
-    xs+=[orbdata[:,k:k+6]]
+    k=NSTATE*(i+1)+1
+    xs+=[orbdata[:,k:k+NSTATE]]
 xs=array(xs)
 
 #############################################################
@@ -55,7 +56,7 @@ t=ts[iobs]
 print "Snaptshot: %d, t - tper = %.2f yrs"%(iobs,t+tini)
 print "Integration time: %.2f yrs = %.2f days"%(t,t*365.25)
 
-rcm=xcm[iobs,0:6]
+rcm=xcm[iobs,0:NSTATE]
 d=NORM(rcm[0:3])
 D=d
 f=open("comet-fragments-snapshots.dat","w")
@@ -63,7 +64,7 @@ f=open("comet-fragments-snapshots.dat","w")
 rmax=0
 vmax=0
 for i in xrange(0,nfrag):
-    rs=xs[i,iobs,0:6]
+    rs=xs[i,iobs,0:NSTATE]
     rf=rs-rcm
     rfnorm=NORM(rf[0:3])
     vnorm=NORM(rf[3:6])

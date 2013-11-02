@@ -6,12 +6,15 @@ from matplotlib import pyplot as plt,patches as pat,cm
 from mpl_toolkits.mplot3d import Axes3D
 from numpy import *
 from sys import *
+from os import system
 
 #############################################################
 #CONSTANTS
 #############################################################
+NSTATE=6
 R2S=180/pi*3600
 NORM=linalg.norm
+system("rm -rf animation/*.png")
 
 #############################################################
 #OBSERVATIONAL DATA
@@ -19,7 +22,7 @@ NORM=linalg.norm
 obsdata=loadtxt("comet-observations.dat");
 nobs=obsdata.shape[0]
 nsys=obsdata.shape[1]
-nfrag=nsys/6-1
+nfrag=nsys/NSTATE-1
 
 print "Observations properties:"
 print "\tNumber of observations:%d"%nobs
@@ -29,8 +32,8 @@ ts=obsdata[:,0]
 xcm=obsdata[:,1:7]
 xs=[]
 for i in xrange(0,nfrag):
-    k=6*(i+1)+1
-    xs+=[obsdata[:,k:k+6]]
+    k=NSTATE*(i+1)+1
+    xs+=[obsdata[:,k:k+NSTATE]]
 xs=array(xs)
 
 #############################################################
@@ -113,3 +116,6 @@ for iobs in xrange(0,nobs):
     #SAVE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     fig.savefig("animation/plot-t_%.2f.png"%ts[iobs]);
+
+print "Creating animation..."
+system("convert -delay 20 animation/*.png -loop 0 animation/disintegration.gif")

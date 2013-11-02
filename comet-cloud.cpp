@@ -1,22 +1,52 @@
-#define RANSEED 1
-#define SUN_FORCE
-#define FRAG_FORCE
-#define RAD_FORCE
-//#define EVAP_FORCE
-#include <util.cpp>
+//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+// BEHAVIOR
+//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+//**************************************************
+//FORCE
+//**************************************************
+#define SUN_FORCE /*FORCE FROM THE SUN*/
+#define FRAG_FORCE /*FORCE FROM LARGE FRAGMENTS*/
+#define RADIATION_FORCE /*RADIATION FORCE*/
+#define PR_CORRECTION /*POYINTING-ROBERTSON CORRECTION*/
+#define EVAP_FORCE /*EVAPORATION RECOIL*/
 
+//**************************************************
+//INITIAL CONDITIONS
+//**************************************************
+#define RANSEED 1
+#define RADIALMODE /*DEBRIS HAVE A RADIAL VELOCITY*/
+
+//**************************************************
+//DYNAMICS
+//**************************************************
+#define ALLOW_COLISION /*ALLOW COLISION*/
+
+//**************************************************
+//OUTPUT
+//**************************************************
+#define SAVE_TRAJECTORIES
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+// PROGRAM
+//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+#include <util.cpp>
 int main(int argc,char *argv[])
 {
   //////////////////////////////////////////
   //VARIABLES
   //////////////////////////////////////////
+  FILE** ftraj;
   double rmax,vmax;
   double vesc,vtan,Pmin,fc;
   int i,j,k,l;
   double xaxis[]={1,0,0},yaxis[]={0,1,0},zaxis[]={0,0,1};
-  double xE[6];
+  double xE[NSTATE];
   double t,tini,tint,dt;
-  double xcm[6],axis[]={0,0,0,0,0,1};
+  double xcm[NSTATE],axis[NSTATE];
   file faxis,ffrag,fint,fearth,fobs,fdir;
   double ul,um,ut,uG;
   double eC[NELEMS],normC[3];
@@ -30,7 +60,7 @@ int main(int argc,char *argv[])
   int nlarge;
   int ndebris;
 
-  double mp,Rp;
+  double mp,Mp,Rp;
   double dx[3];
   double* type;
   double* Ms;
@@ -45,6 +75,13 @@ int main(int argc,char *argv[])
   double* dy;
   double* dydt;
   double dirs[12];
+  double dth,Rmin;
+  double ur[3],vr[3];
+  double* xf;
+
+  //SET AXIS
+  memset(axis,0,NSTATE*sizeof(axis[0]));
+  axis[5]=1.0;
 
   //////////////////////////////////////////
   //SET UNITS
@@ -92,15 +129,19 @@ int main(int argc,char *argv[])
   //SIZE OF FRAGMENT AND DEBRIS REGION
   fc=1.5;
 
+  //THICK OF DEBRIS CRUST 
+  Rmin=1.0*fc*Rc; /* Minimum radius for debris origin */
+  dth=0.1; /* fc Rc */
+
   //PERIOD OF ROTATION
-  Prot=3.8*HOURS /*secs*/ /UT;
+  Prot=4*HOURS /*secs*/ /UT;
 
   //HEALTHY CORE MASS
   Mc=4*PI/3*Rc*Rc*Rc*RHOCOMET; 
 
   //NUMBER OF FRAGMENTS AND DEBRIS 
-  nlarge=1; //Number of large particles
-  ndebris=1; //Number of debris particles
+  nlarge=10; //Number of large particles
+  ndebris=50; //Number of debris particles
 
   //AVERAGE MASS AND RADIUS OF ROCKY+DUST FRAGMENTS
   if(nlarge>0) mp=FR*Mc/nlarge; //Average mass of large fragments
@@ -135,10 +176,10 @@ int main(int argc,char *argv[])
   tini=-1.0;//yrs before periapse
   tint=1.5; //yrs of integration time
   dt=eC[PER]/1000;//Time step
-  /*
-  tint=0.5;
-  dt=1/365.25/100;
-  */
+  //*
+  dt=1/365.25/50;
+  tint=10*dt;
+  //*/
 
   //////////////////////////////////////////
   //COMETARY ORBIT
@@ -191,7 +232,7 @@ int main(int argc,char *argv[])
   ffrag=fopen("comet-fragments.dat","w");
 
   //TOTAL FRAGMENTS
-  nfrag=nlarge+ndebris;
+  NPARTICLES=nfrag=nlarge+ndebris;
 
   //INFORMATION ABOUT FRAGMENTS
   Ms=realAlloc(nfrag);
@@ -211,6 +252,8 @@ int main(int argc,char *argv[])
   i=0;
   type[i]=1;
   Ms[i]=mp;
+  //SAVE MASS
+  xs[i][6]=Ms[i];
   Rs[i]=pow(Ms[i]/RHODUST/(4*PI/3),1./3);
   fprintf(stdout,"\tFragment %d:\n",i);
   fprintf(stdout,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
@@ -244,6 +287,9 @@ int main(int argc,char *argv[])
     fprintf(stdout,"\t\tMass: %e UM = %e kg\n",Ms[i],Ms[i]*UM);
     fprintf(stdout,"\t\tRadius: %e UL = %e m = %e Rc\n",Rs[i],Rs[i]*UL,Rs[i]/Rc);
 
+    //SAVE MASS
+    xs[i][6]=Ms[i];
+    
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //INITIAL POSITION
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -252,7 +298,19 @@ int main(int argc,char *argv[])
     do{
       //Generate position
       fprintf(stdout,"\t\t\tGenerating %d random position...\n",k);
-      r=fc*Rc*pow(randReal(),1./3);
+
+      //Region where fragments start
+      if(i<nlarge)
+	//Inner core
+	r=fc*Rc*pow(randReal(),1./3);
+      else{
+	//Outer thick
+	do{
+	  r=(1+dth)*fc*Rc*pow(randReal(),1./3);
+	}while(r<Rmin);
+      }
+	  
+	
       phi=2*M_PI*randReal();
       theta=acos(1-2*randReal());
 
@@ -296,6 +354,28 @@ int main(int argc,char *argv[])
 	    v*cos(phi),
 	    0.0,
 	    xs[i]+3);
+
+    //RADIAL VELOCITY FOR RADIALLY DRAGGED PARTICLES
+    #ifdef RADIALMODE
+    if(i>=nlarge){
+      //RADIAL VELOCITY
+      v=vesc*randReal();
+      xf=xs[i];
+      vhat_c(xf,ur);
+      vxk_c(ur,v,vr);
+
+      vadd_c(xs[i]+3,vr,xs[i]+3);
+      /*
+      fprintf(stdout,"Particle velocity before:");fprintf_vec(stdout,"%e ",xs[i]+3,3);
+      fprintf(stdout,"Radial component:\n");
+      fprintf(stdout,"Escape velocity:%e\n",vesc);
+      fprintf(stdout,"Radial Speed:%e\n",v);
+      fprintf(stdout,"Radial velocity:");fprintf_vec(stdout,"%e ",vr,3);
+      fprintf(stdout,"Particle velocity after:");fprintf_vec(stdout,"%e ",xs[i]+3,3);
+      exit(0);
+      //*/
+    }
+    #endif
     fprintf(stdout,"\t\tState vector: ");
     fprintf_state(stdout,"%e ",xs[i]);
 
@@ -329,12 +409,29 @@ int main(int argc,char *argv[])
   fprintf(stdout,"Maximum velocity: %e\n",vmax*UL/UT/1E3);
   //exit(0);
 
+  #ifdef SAVE_TRAJECTORIES
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //TRAJECTORIES PER PARTICLE
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  system("rm -rf output/*.dat");
+  char fname[100],fpart[100];
+  fprintf(stdout,"Creating individual trajectory files for %d fragments...\n",nfrag);
+  ftraj=(FILE**)calloc(nfrag,sizeof(FILE*));
+  for(i=0;i<nfrag;i++){
+    if(i<nlarge) sprintf(fpart,"fragment_large");
+    else sprintf(fpart,"fragment_debris");
+    sprintf(fname,"output/%s-%05d.dat",fpart,i);
+    ftraj[i]=fopen(fname,"w");
+  }
+  #endif
+
   //////////////////////////////////////////
   //INITIAL CONDITION COMET
   //////////////////////////////////////////
   faxis=fopen("comet-axis.dat","w");
   //STATE
   stateOrbit(tini,eC,xcm);
+  xcm[6]=Mc;
   
   //COMETARY AXIS
   copyState(axis,xcm);
@@ -364,33 +461,39 @@ int main(int argc,char *argv[])
     stateAdd(xs[i],xcm,xs[i]);
     /*
     fprintf(stdout,"Particle %d:",i);
-    fprintf_vec(stdout,"%-+23.17e ",xs[i],6);
+    fprintf_vec(stdout,"%-+23.17e ",xs[i],NSTATE);
     */
   }
 
   //////////////////////////////////////////
   //PREPARE SYSTEM
   //////////////////////////////////////////
-  nsys=6*(nfrag+1);
+  nsys=NSTATE*(nfrag+1);
   y=realAlloc(nsys);
   xobs=realAlloc(nsys);
   dy=realAlloc(nsys);
   dydt=realAlloc(nsys);
 
   //FEED THE SYSTEM STATE ARRAY
-  memcpy(y,xcm,6*sizeof(double));
+  memcpy(y,xcm,NSTATE*sizeof(double));
   for(i=0;i<nfrag;i++){
-    k=6*(i+1);
-    memcpy(y+k,xs[i],6*sizeof(double));
+    k=NSTATE*(i+1);
+    memcpy(y+k,xs[i],NSTATE*sizeof(double));
   }
-  
+  /*
+  fprintf(stdout,"Initial state (nsys = %d):\n",nsys);
+  fprintf_vec(stdout,"%e ",y,nsys);
+  */
+  //exit(0);
+
   //////////////////////////////////////////
   //INTEGRATE ORBITS
   //////////////////////////////////////////
-  double* params=realAlloc(nfrag+2);
+  double* params=realAlloc(2*nfrag+2);
   params[0]=nsys;
   params[1]=nlarge;
   memcpy(params+2,Rs,nfrag*sizeof(double));
+  memcpy(params+2+nfrag,Ms,nfrag*sizeof(double));
 
   gsl_odeiv2_system sys={gravSystem,NULL,nsys,params};
   gsl_odeiv2_driver* driver=
@@ -411,32 +514,59 @@ int main(int argc,char *argv[])
   fprintf(stdout,"Number of steps:%d\n",nsteps);
   do{
     if((n%nscreen)==0)
-      fprintf(stdout,"\tStep %d: t = %e\n",n,t);
+      fprintf(stdout,"\tStep %d: t = %e (nparticles = %d)\n",n,t,NPARTICLES);
     n++;
+
+    /*
+    fprintf(stdout,"Parameters:");
+    fprintf_vec(stdout,"%e ",params,nfrag+2);
+    */
+
+    //UPDATE MASSES
+    for(i=0;i<nfrag;i++){
+      k=NSTATE*(i+1);
+      xf=y+k;
+      Mp=params[2+nfrag+i];
+      if(Mp==0) xf[6]=0;
+    }
 
     //HELIOCENTRIC ORBIT
     fprintf(fint,"%-23.17e ",t);
     fprintf_vec(fint,"%-+23.17e ",y,nsys,false);
 
+    #ifdef SAVE_TRAJECTORIES
+    for(i=0;i<nfrag;i++){
+      k=NSTATE*(i+1);
+      xf=y+k;
+      //DON'T SAVE IF PARTICLE HAS COLLIDED
+      if(xf[6]==0) continue;
+      //TRAJECTORY PER PARTICLE
+      fprintf(ftraj[i],"%-23.17e ",t);
+      fprintf_vec(ftraj[i],"%-+23.17e ",y,NSTATE,false,0,false);
+      fprintf_vec(ftraj[i],"%-+23.17e ",y+k,NSTATE,false);
+    }
+    #endif
+
     //EARTH POSITION
     stateOrbit(t+tini,eE,xE);
     fprintf(fearth,"%-+23.17e ",t);
-    fprintf_vec(fearth,"%-+23.17e ",xE,6,false);
+    fprintf_vec(fearth,"%-+23.17e ",xE,NSTATE,false);
 
     //OBSERVATIONS
     for(i=0;i<=nfrag;i++){
-      k=6*i;
+      k=NSTATE*i;
       earthObservations(t+tini,eE,eC,y+k,xobs+k);
     }
     //CONVERT TO PHYSICAL UNITS
     for(i=0;i<=nfrag;i++){
-      k=6*i;
+      k=NSTATE*i;
       xobs[0+k]*=UL;
       xobs[1+k]*=UL;
       xobs[2+k]*=UL;
       xobs[3+k]*=UL/UT;
       xobs[4+k]*=UL/UT;
       xobs[5+k]*=UL/UT;
+      xobs[6+k]*=UM;
     }
     fprintf(fobs,"%-+23.17e ",t*UT/YEAR);
     fprintf_vec(fobs,"%-+23.17e ",xobs,nsys,false);
@@ -447,9 +577,9 @@ int main(int argc,char *argv[])
     vadd_c(dirs,y,dirs);
     earthObservations(t+tini,eE,eC,dirs,dirs);
 
-    vpack_c(-y[0],-y[1],-y[2],dirs+6);
-    vadd_c(dirs+6,y,dirs+6);
-    earthObservations(t+tini,eE,eC,dirs+6,dirs+6);
+    vpack_c(-y[0],-y[1],-y[2],dirs+NSTATE);
+    vadd_c(dirs+NSTATE,y,dirs+NSTATE);
+    earthObservations(t+tini,eE,eC,dirs+NSTATE,dirs+NSTATE);
 
     fprintf(fdir,"%-+23.17e ",t);
     fprintf_vec(fdir,"%-+23.17e ",dirs,12,false);
@@ -458,12 +588,52 @@ int main(int argc,char *argv[])
     gsl_odeiv2_driver_apply(driver,&t,t+dt,y);
   }while(t<tint);
 
+  #ifdef SAVE_TRAJECTORIES
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //PLOTTING SCRIPT FOR TRAJECT.
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  char fopts[100];
+  file fplot=fopen("plot-trajectories.gpl","w");
+  fprintf(fplot,""
+	  "set title 'Following %d fragments'\n"
+	  "set xlabel 'x(km)';set ylabel 'y(km)';set zlabel 'z(km)'\n"
+	  /*"set view 0,0\n"*/
+	  "splot \\\n",NPARTICLES);
+  for(i=0;i<nfrag;i++){
+    //Close trajectory files
+    fclose(ftraj[i]);
+    //OPTIONS
+    if(i<nlarge){
+      sprintf(fpart,"fragment_large");
+      //sprintf(fopts,"w p pt 7 ps 2 lt 1");
+      sprintf(fopts,"not w lp pt 7 ps 2 lt 1");
+      //sprintf(fopts,"t '%d' w lp pt 7 ps 2",i);
+    }
+    else{
+      sprintf(fpart,"fragment_debris");
+      //sprintf(fopts,"w p pt 7 ps 1 lt 3");
+      sprintf(fopts,"not w lp pt 7 ps 1 lt 3");
+      //sprintf(fopts,"t '%d' w lp pt 7 ps 1",i);
+    }
+    //Create
+    fprintf(fplot,""
+	    "'output/%s-%05d.dat' u (($%d-$2)*%e):(($%d-$3)*%e):(($%d-$4)*%e) %s",
+	    fpart,i,NSTATE+2,UL/1E3,NSTATE+3,UL/1E3,NSTATE+4,UL/1E3,fopts);
+    if(i<nfrag-1)
+      fprintf(fplot,",\\\n");
+  }
+  fprintf(fplot,"\npause -1\n");
+  fclose(fplot);
+  #endif
+
   //////////////////////////////////////////
   //CLOSING COMMANDS
   //////////////////////////////////////////
   fclose(fint);
   fclose(fearth);
   fclose(fobs);
+
+  system("gnuplot 'plot-trajectories.gpl'");
 
   return 0;
 }

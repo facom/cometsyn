@@ -318,12 +318,12 @@ facvel=%e
         f.write("%s=%e\n"%(key,comconf[key]))
     f.close()
 
-    #system("gnuplot plot-fragments.gpl")
+    system("gnuplot plot-fragments.gpl")
 
 #////////////////////////////////////////
 #OBSERVATIONS
 #////////////////////////////////////////
-def Observation(iobs=1,**args):
+def Observation(iobs=1,rmax=1E8,**args):
     """
     Plot a snapshot of the fragments positions
     """
@@ -353,13 +353,11 @@ def Observation(iobs=1,**args):
     #PLOT
     #**************************************************
     npart=0
-    rmax=0
     ax.plot([0],[0],'k+',markersize=20)
 
     #GET GLOBAL PROPERTIES
     rmaxp=abs(xs_obs[:,iobs,0:2]).max()*UL
     print "Largest distance to particles: %e km"%(rmaxp/1E3)
-    rmax=1E8
     expr=floor(log10(rmax))
     facr=10**expr
 

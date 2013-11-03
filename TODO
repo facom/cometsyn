@@ -12,13 +12,16 @@ P. Include evaporation recoil.
 P. In observations calculate brightness of coma according to
    properties and distribution of particles.
 
-P. Calculate debris zone expansion velocity.
-
 P. Include mass variation for particles.
 
 P. Ephemeris of the Earth and Comet
 
-P. Disintegration mode:
+Done
+====
+
+D. Calculate debris zone expansion velocity.
+
+D. Disintegration mode:
 
    * Purely rotational: all particles start with an initial velocity purely
      rotational
@@ -26,9 +29,6 @@ P. Disintegration mode:
    * Rotational + Gas lifted debris: large fragments start with
      initial velocity purely rotational but debris start with an
      additional component due to gas lift.
-
-Done
-====
 
 D. Make debris start from surface
 

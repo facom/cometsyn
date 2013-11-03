@@ -9,7 +9,7 @@ splot \
 "comet-orbit.dat" u 2:3:4 w l t 'Comet CM',\
 "comet-earth.dat" u 2:3:4 w l t 'Earth CM',\
 "comet-fragments-orbit.dat" u 2:3:4 every ::0::nlarge_end-1 w p lt 1 t 'Comet Frag.',\
-"comet-fragments-orbit.dat" u 2:3:4 every ::nlarge_end w p lt 3 not,\
+"comet-fragments-orbit.dat" u 2:3:4 every ::nlarge_end w d lt 3 not,\
 "comet-axis.dat" u 1:2:3:4:5:6 w vec ls 3 not
 
 #Pause

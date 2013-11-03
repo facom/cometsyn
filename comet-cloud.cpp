@@ -26,7 +26,7 @@
 //**************************************************
 //OUTPUT
 //**************************************************
-#define SAVE_TRAJECTORIES
+//#define SAVE_TRAJECTORIES
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -105,6 +105,10 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //COMETARY PHYSICAL PROPERTIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //SIZE DISTRIBUTION OF DEBRIS
+  double rmin=100E-6;
+  double alpha=2;
+
   //DENSITY OF ROCKY FRAGMENTS
   RHODUST=2E3 /*kg/m^3*//(UM/(UL*UL*UL));
   
@@ -131,8 +135,8 @@ int main(int argc,char *argv[])
   Mc=4*PI/3*Rc*Rc*Rc*RHOCOMET; 
 
   //NUMBER OF FRAGMENTS AND DEBRIS 
-  nlarge=10; //Number of large particles
-  ndebris=40; //Number of debris particles
+  nlarge=40; //Number of large particles
+  ndebris=400; //Number of debris particles
 
   //AVERAGE MASS AND RADIUS OF ROCKY+DUST FRAGMENTS
   if(nlarge>0) mp=FR*Mc/nlarge; //Average mass of large fragments
@@ -142,7 +146,7 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //COMETARY ORBITAL ELEMENTS
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  eC[RP]=1.0;
+  eC[RP]=0.3;
   eC[ECC]=0.8;
   eC[INC]=0.0*D2R;
   eC[LNODE]=0.0*D2R;
@@ -299,7 +303,9 @@ int main(int argc,char *argv[])
     }
     else{
       type[i]=DEBRIS;
-      Rs[i]=1.0E-3 /*m*/ /UL;
+      //Rs[i]=1.0E-3 /*m*/ /UL;
+      /*GENERATE RANDOM SIZE*/
+      Rs[i]=rmin/pow((1-randReal()),1/(alpha-1)) /*m*/ /UL;
       Ms[i]=4*PI/3*RHODUST*Rs[i]*Rs[i]*Rs[i];
     }
     fprintf(stdout,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
@@ -453,6 +459,7 @@ int main(int argc,char *argv[])
     ftraj[i]=fopen(fname,"w");
   }
   #endif
+  //exit(0);
 
   //////////////////////////////////////////
   //INITIAL CONDITION COMET
@@ -541,7 +548,6 @@ int main(int argc,char *argv[])
   int n=0;
   int nsteps=(int)(tint/dt);
   int nscreen=nsteps/10;
-  nscreen=1
   bool qfinal=false;
   fprintf(stdout,"Number of steps:%d\n",nsteps);
   iout=1;

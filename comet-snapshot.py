@@ -11,7 +11,7 @@ from os import system
 #############################################################
 #CONSTANTS
 #############################################################
-NSTATE=6
+NSTATE=7
 NORM=linalg.norm
 
 #############################################################
@@ -92,18 +92,10 @@ f=open("fragments.gph","w")
 f.write("""\
 file='comet-fragments-snapshots.dat'
 title='t = %.2f yrs, d = %.2f AU, D = %.2f AU'
-nfrag=%d
-nlarge=%d
-ndebris=%d
-tini=%e
-UM=%e
-UL=%e
-UT=%e
 Rmax=%e
 Rc=%e
 rf=%e
-"""%(t+tini,d,D,nfrag,nlarge,ndebris,tini,
-     config['UM'],config['UL'],config['UT'],
+"""%(t+tini,d,D,
      rmax,config['Rc']*10,config['rf']))
 f.close()
 

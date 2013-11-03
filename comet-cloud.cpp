@@ -16,7 +16,7 @@
 //INITIAL CONDITIONS
 //**************************************************
 #define RANSEED 1
-#define RADIALMODE /*DEBRIS HAVE A RADIAL VELOCITY*/
+//#define RADIALMODE /*DEBRIS HAVE A RADIAL VELOCITY*/
 
 //**************************************************
 //DYNAMICS
@@ -44,10 +44,11 @@ int main(int argc,char *argv[])
   double vesc,vtan,Pmin,fc;
   int i,j,k,l;
   double xaxis[]={1,0,0},yaxis[]={0,1,0},zaxis[]={0,0,1};
-  double xE[NSTATE];
+  double xE[NSTATE],xCE[NSTATE];
   double t,tini,tint,dt;
+  int iout,nout;
   double xcm[NSTATE],axis[NSTATE];
-  file faxis,ffrag,fint,fearth,fobs,fdir;
+  file faxis,ffrag,fint,fearth,fobs,fdir,fcom,fpfrag;
   double ul,um,ut,uG;
   double eC[NELEMS],normC[3];
   double RHO[3][3],IRHO[3][3];
@@ -74,11 +75,16 @@ int main(int argc,char *argv[])
   double* xobs;
   double* dy;
   double* dydt;
-  double dirs[12];
+  double* dirs=realAlloc(2*NSTATE);
   double dth,Rmin;
   double ur[3],vr[3];
   double* xf;
-
+  double* rcom=realAlloc(NSTATE);
+  double* rcm=realAlloc(NSTATE);
+  double rsun,rfearth[3],rearth,laxis;
+  bool lastreport=false;
+  int status;
+  
   //SET AXIS
   memset(axis,0,NSTATE*sizeof(axis[0]));
   axis[5]=1.0;
@@ -96,21 +102,6 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //GLOBAL PARAMETERS
   //////////////////////////////////////////
-  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  //COMETARY ORBITAL ELEMENTS
-  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  eC[RP]=1.0;
-  eC[ECC]=0.8;
-  eC[INC]=0.0*D2R;
-  eC[LNODE]=0.0*D2R;
-  eC[ARGP]=0.0*D2R;
-  eC[M0]=0.0;
-  eC[MU]=GPROG*1.0;
-  eC[TPER]=0.0;
-  eC[PER]=tOrbit(eC);
-  eC[AXISZ]=45.0*D2R;
-  eC[AXISXY]=90.0*D2R;
-
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //COMETARY PHYSICAL PROPERTIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -141,13 +132,32 @@ int main(int argc,char *argv[])
 
   //NUMBER OF FRAGMENTS AND DEBRIS 
   nlarge=10; //Number of large particles
-  ndebris=50; //Number of debris particles
+  ndebris=40; //Number of debris particles
 
   //AVERAGE MASS AND RADIUS OF ROCKY+DUST FRAGMENTS
   if(nlarge>0) mp=FR*Mc/nlarge; //Average mass of large fragments
   else mp=0;
   Rp=pow((mp/RHODUST)/(4*PI/3),1./3);
 
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //COMETARY ORBITAL ELEMENTS
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  eC[RP]=1.0;
+  eC[ECC]=0.8;
+  eC[INC]=0.0*D2R;
+  eC[LNODE]=0.0*D2R;
+  eC[ARGP]=0.0*D2R;
+  eC[M0]=0.0*D2R;
+  eC[MU]=GPROG*1.0;
+  eC[TPER]=0.0;
+  eC[PER]=tOrbit(eC);
+  eC[AXISZ]=45.0*D2R;
+  eC[AXISXY]=90.0*D2R;
+  eC[EMASS]=Mc;
+
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //REPORT
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   fprintf(stdout,"Cometary properties:\n");
   fprintf(stdout,"\tAverage density: %e UM/UL^3 = %e kg/m^3\n",RHODUST,RHODUST*UM/(UL*UL*UL));
   fprintf(stdout,"\tRotation period: %e UT = %e h\n",Prot,Prot*UT/3600);
@@ -177,9 +187,15 @@ int main(int argc,char *argv[])
   tint=1.5; //yrs of integration time
   dt=eC[PER]/1000;//Time step
   //*
-  dt=1/365.25/50;
-  tint=10*dt;
+  dt=1/365.25;
+  tint=100*dt;
   //*/
+  /*
+  tini=-100*DAY/UT;
+  tint=20*DAY/UT;
+  dt=0.1*DAY/UT;
+  */
+  nout=3;
 
   //////////////////////////////////////////
   //COMETARY ORBIT
@@ -215,6 +231,7 @@ int main(int argc,char *argv[])
   eE[PER]=tOrbit(eC);
   eE[AXISZ]=23.5*D2R;
   eE[AXISXY]=0.0*D2R;
+  eE[EMASS]=MEARTH/UM;
   orbitNormal(eE,normE);
 
   //////////////////////////////////////////
@@ -233,6 +250,8 @@ int main(int argc,char *argv[])
 
   //TOTAL FRAGMENTS
   NPARTICLES=nfrag=nlarge+ndebris;
+  NLARGE=nlarge;
+  NDEBRIS=ndebris;
 
   //INFORMATION ABOUT FRAGMENTS
   Ms=realAlloc(nfrag);
@@ -332,6 +351,22 @@ int main(int argc,char *argv[])
       }
       k++;
     }while(qfrag);
+
+    /***DEBUG***
+    if(i==1){
+      printf("Fragment:%d\n",i);
+      vpack_c(1*Rc,0*Rc,0*Rc,xs[i]);
+    }
+    if(i==2){
+      printf("Fragment:%d\n",i);
+      vpack_c(0*Rc,1*Rc,0*Rc,xs[i]);
+    }
+    if(i==3){
+      printf("Fragment:%d\n",i);
+      vpack_c(-1*Rc,0*Rc,0*Rc,xs[i]);
+    }
+    //*/
+
     fprintf(stdout,"\t\tSpherical coordinates (trials %d): (%e,%e,%e)\n",
 	    k,r*UL,theta,phi);
     fprintf(stdout,"\t\tCartesian coordinates: ");
@@ -389,22 +424,6 @@ int main(int argc,char *argv[])
   }
   fclose(ffrag);
 
-  file fpfrag=fopen("fragments.gph","w");
-  fprintf(fpfrag,
-	  "file='comet-fragments.dat'\n"
-	  "title='t = %.2f yrs'\n"
-	  "nfrag=%d\n"
-	  "nlarge=%d\n"
-	  "ndebris=%d\n"
-	  "tini=%e\n"
-	  "UM=%e\n"
-	  "UL=%e\n"
-	  "UT=%e\n"
-	  "Rmax=%e\n"
-	  "Rc=%e\n"
-	  "rf=%e\n",tini,nfrag,nlarge,ndebris,tini,UM,UL,UT,Rc*UL,Rc*UL,Rp*UL);
-  fclose(fpfrag);
-
   fprintf(stdout,"Maximum distance: %e\n",rmax*UL);
   fprintf(stdout,"Maximum velocity: %e\n",vmax*UL/UT/1E3);
   //exit(0);
@@ -413,6 +432,16 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //TRAJECTORIES PER PARTICLE
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  fpfrag=fopen("fragments.gph","w");
+  fprintf(fpfrag,
+	  "file='comet-fragments.dat'\n"
+	  "title='t = %.2f yrs'\n"
+	  "facvel=1\n"
+	  "Rmax=%e\n"
+	  "Rc=%e\n"
+	  "rf=%e\n",
+	  tini,Rc*UL,Rc*UL,Rp*UL);
+  fclose(fpfrag);
   system("rm -rf output/*.dat");
   char fname[100],fpart[100];
   fprintf(stdout,"Creating individual trajectory files for %d fragments...\n",nfrag);
@@ -505,89 +534,153 @@ int main(int argc,char *argv[])
   fearth=fopen("comet-earth.dat","w");
   fobs=fopen("comet-observations.dat","w");
   fdir=fopen("comet-dirs.dat","w");
+  fcom=fopen("comet-comet.dat","w");
 
   t=0;
   fprintf(stdout,"Integration:\n");
   int n=0;
   int nsteps=(int)(tint/dt);
   int nscreen=nsteps/10;
+  bool qfinal=false;
   fprintf(stdout,"Number of steps:%d\n",nsteps);
+  iout=1;
   do{
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    //REPORT
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if((n%nscreen)==0)
-      fprintf(stdout,"\tStep %d: t = %e (nparticles = %d)\n",n,t,NPARTICLES);
-    n++;
+      fprintf(stdout,"\tStep %d: t = %e (nparticles = %d, nlarge = %d, ndebris = %d)\n",n,t,NPARTICLES,NLARGE,NDEBRIS);
 
-    /*
-    fprintf(stdout,"Parameters:");
-    fprintf_vec(stdout,"%e ",params,nfrag+2);
-    */
-
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //UPDATE MASSES
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     for(i=0;i<nfrag;i++){
       k=NSTATE*(i+1);
       xf=y+k;
       Mp=params[2+nfrag+i];
       if(Mp==0) xf[6]=0;
     }
-
-    //HELIOCENTRIC ORBIT
-    fprintf(fint,"%-23.17e ",t);
-    fprintf_vec(fint,"%-+23.17e ",y,nsys,false);
-
-    #ifdef SAVE_TRAJECTORIES
-    for(i=0;i<nfrag;i++){
-      k=NSTATE*(i+1);
-      xf=y+k;
-      //DON'T SAVE IF PARTICLE HAS COLLIDED
-      if(xf[6]==0) continue;
-      //TRAJECTORY PER PARTICLE
-      fprintf(ftraj[i],"%-23.17e ",t);
-      fprintf_vec(ftraj[i],"%-+23.17e ",y,NSTATE,false,0,false);
-      fprintf_vec(ftraj[i],"%-+23.17e ",y+k,NSTATE,false);
-    }
-    #endif
-
-    //EARTH POSITION
-    stateOrbit(t+tini,eE,xE);
-    fprintf(fearth,"%-+23.17e ",t);
-    fprintf_vec(fearth,"%-+23.17e ",xE,NSTATE,false);
-
-    //OBSERVATIONS
-    for(i=0;i<=nfrag;i++){
-      k=NSTATE*i;
-      earthObservations(t+tini,eE,eC,y+k,xobs+k);
-    }
-    //CONVERT TO PHYSICAL UNITS
-    for(i=0;i<=nfrag;i++){
-      k=NSTATE*i;
-      xobs[0+k]*=UL;
-      xobs[1+k]*=UL;
-      xobs[2+k]*=UL;
-      xobs[3+k]*=UL/UT;
-      xobs[4+k]*=UL/UT;
-      xobs[5+k]*=UL/UT;
-      xobs[6+k]*=UM;
-    }
-    fprintf(fobs,"%-+23.17e ",t*UT/YEAR);
-    fprintf_vec(fobs,"%-+23.17e ",xobs,nsys,false);
-
-    //DIRECTIONS
-    vpack_c(0,0,1,dirs);
-    mxv_c(IRHA,dirs,dirs);
-    vadd_c(dirs,y,dirs);
-    earthObservations(t+tini,eE,eC,dirs,dirs);
-
-    vpack_c(-y[0],-y[1],-y[2],dirs+NSTATE);
-    vadd_c(dirs+NSTATE,y,dirs+NSTATE);
-    earthObservations(t+tini,eE,eC,dirs+NSTATE,dirs+NSTATE);
-
-    fprintf(fdir,"%-+23.17e ",t);
-    fprintf_vec(fdir,"%-+23.17e ",dirs,12,false);
     
-    //INTEGRATE
-    gsl_odeiv2_driver_apply(driver,&t,t+dt,y);
-  }while(t<tint);
+  report:
+    if((n%nout)==0 || qfinal){
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //SAVE TRAJECTORIES
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      fprintf(stdout,"\t\tSAVING SNAPSHOT %d t = %e.\n",iout,t);
+      iout++;
+      #ifdef SAVE_TRAJECTORIES
+      for(i=0;i<nfrag;i++){
+	k=NSTATE*(i+1);
+	xf=y+k;
+	//DON'T SAVE IF PARTICLE HAS COLLIDED
+	if(xf[6]==0) continue;
+	//TRAJECTORY PER PARTICLE
+	fprintf(ftraj[i],"%-23.17e ",t);
+	fprintf_vec(ftraj[i],"%-+23.17e ",y,NSTATE,false,0,false);
+	fprintf_vec(ftraj[i],"%-+23.17e ",y+k,NSTATE,false);
+      }
+      #endif
 
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //SAVE HELIOCENTRIC ORBIT
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      fprintf(fint,"%-23.17e ",t);
+      fprintf_vec(fint,"%-+23.17e ",y,nsys,false);
+
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //SAVE EARTH
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      stateOrbit(t+tini,eE,xE);
+      fprintf(fearth,"%-+23.17e ",t);
+      fprintf_vec(fearth,"%-+23.17e ",xE,NSTATE,false);
+
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //SAVE COMET-CENTRIC ORBIT
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      fprintf(fcom,"%-+23.17e ",t);
+
+      //DIRECTION OF THE SUN
+      memcpy(rcm,y,NSTATE*sizeof(rcom[0]));
+      vxk_c(rcm,-1,rcm);
+      rotateState(RHA,rcm,rcm);
+      vhat_c(rcm,rcm);
+      fprintf_vec(fcom,"%-+23.17e ",rcm,3,false,0,false);
+
+      //DIRECTION OF THE EARTH
+      xf=y;
+      vsubg_c(xE,xf,NSTATE,xCE);
+      rotateState(RHA,xCE,xCE);
+      vhat_c(xCE,xCE);
+      fprintf_vec(fcom,"%-+23.17e ",xCE,3,false,0,false);
+      
+      //CENTER OF MASS
+      xf=y;
+      for(i=0;i<nfrag+1;i++){
+	k=NSTATE*i;
+	memcpy(rcom,y+k,NSTATE*sizeof(rcom[0]));
+	vsubg_c(rcom,xf,NSTATE-1,rcom);
+	rotateState(RHA,rcom,rcom);
+	fprintf_vec(fcom,"%-+23.17e ",rcom,NSTATE,false,0,false);
+      }
+      fprintf(fcom,"\n");
+
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //SAVE GEOCENTRIC POSITIONS
+      //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //OBSERVATIONS
+      for(i=0;i<=nfrag;i++){
+	k=NSTATE*i;
+	earthObservations(t+tini,eE,eC,y+k,xobs+k);
+      }
+      fprintf(fobs,"%-+23.17e ",t*UT/YEAR);
+      fprintf_vec(fobs,"%-+23.17e ",xobs,nsys,false);
+      //DIRECTIONS
+      rsun=vnorm_c(y);
+      vsub_c(y,xE,rfearth);
+      rearth=vnorm_c(rfearth);
+      //fprintf(stdout,"Rsun = %e, Rearth = %e\n",rsun,rearth);
+      laxis=0.1*rearth;
+      memset(dirs,0,2*NSTATE*sizeof(dirs[0]));
+      vpack_c(0,0,laxis,dirs);
+      //fprintf(stdout,"Dirs initial:");fprintf_vec(stdout,"%e ",dirs,2*NSTATE);
+      mxv_c(IRHA,dirs,dirs);
+      //fprintf(stdout,"Dirs rotated:");fprintf_vec(stdout,"%e ",dirs,2*NSTATE);
+      //fprintf(stdout,"State:");fprintf_vec(stdout,"%e ",y,NSTATE);
+      vadd_c(dirs,y,dirs);
+      //fprintf(stdout,"Dirs translated:");fprintf_vec(stdout,"%e ",dirs,2*NSTATE);
+      earthObservations(t+tini,eE,eC,dirs,dirs);
+      //fprintf(stdout,"Dirs observed:");fprintf_vec(stdout,"%e ",dirs,2*NSTATE);
+      vpack_c(-laxis*y[0]/rsun,-laxis*y[1]/rsun,-laxis*y[2]/rsun,dirs+NSTATE);
+      //fprintf(stdout,"Dirs sun initial:");fprintf_vec(stdout,"%e ",dirs,2*NSTATE);
+      vadd_c(dirs+NSTATE,y,dirs+NSTATE);
+      //fprintf(stdout,"Dirs sun translated:");fprintf_vec(stdout,"%e ",dirs,2*NSTATE);
+      earthObservations(t+tini,eE,eC,dirs+NSTATE,dirs+NSTATE);
+      //fprintf(stdout,"Dirs sun observed:");fprintf_vec(stdout,"%e ",dirs,2*NSTATE);
+      //exit(0);
+      fprintf(fdir,"%-+23.17e ",t);
+      fprintf_vec(fdir,"%-+23.17e ",dirs,2*NSTATE,false);
+    }//END SAVING STATE
+
+    if(qfinal){
+      lastreport=true;
+      break;
+    }
+    
+    /***DEBUG***
+    break;
+    //*/
+
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    //INTEGRATE
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    gsl_odeiv2_driver_apply(driver,&t,t+dt,y);
+    n++;
+  }while(t<tint);
+  qfinal=true;
+  if(!lastreport) goto report;
+
+  fprintf(stdout,"Integration ended at t = %e yrs = %e days after %d steps\n",
+	  t,t*365.25,n);
   #ifdef SAVE_TRAJECTORIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //PLOTTING SCRIPT FOR TRAJECT.
@@ -595,10 +688,14 @@ int main(int argc,char *argv[])
   char fopts[100];
   file fplot=fopen("plot-trajectories.gpl","w");
   fprintf(fplot,""
+	  "set view equal xyz\n"
 	  "set title 'Following %d fragments'\n"
+	  "udir=10\n"
 	  "set xlabel 'x(km)';set ylabel 'y(km)';set zlabel 'z(km)'\n"
 	  /*"set view 0,0\n"*/
-	  "splot \\\n",NPARTICLES);
+	  "splot \\\n"
+	  "'output/fragment_large-00000.dat' u (0*$2):(0*$3):(0*$4):(-$2/sqrt($2*$2+$3*$3+$4*$4)*udir):(-$3/sqrt($2*$2+$3*$3+$4*$4)*udir):(-$4/sqrt($2*$2+$3*$3+$4*$4)*udir) w vec not,\\\n"
+	  ,NPARTICLES);
   for(i=0;i<nfrag;i++){
     //Close trajectory files
     fclose(ftraj[i]);
@@ -626,14 +723,36 @@ int main(int argc,char *argv[])
   fclose(fplot);
   #endif
 
+  fpfrag=fopen("analysis.cfg","w");
+  fprintf(fpfrag,
+	  "nfrag=%d\n"
+	  "nlarge=%d\n"
+	  "ndebris=%d\n"
+	  "nfrag_end=%d\n"
+	  "nlarge_end=%d\n"
+	  "ndebris_end=%d\n"
+	  "tini=%e\n"
+	  "tint=%e\n"
+	  "UM=%e\n"
+	  "UL=%e\n"
+	  "UT=%e\n",
+	  nfrag,nlarge,ndebris,
+	  NPARTICLES,NLARGE,NDEBRIS,
+	  tini,tint,
+	  UM,UL,UT);
+  fclose(fpfrag);
+
   //////////////////////////////////////////
   //CLOSING COMMANDS
   //////////////////////////////////////////
   fclose(fint);
   fclose(fearth);
   fclose(fobs);
+  fclose(fcom);
 
-  system("gnuplot 'plot-trajectories.gpl'");
+  #ifdef SAVE_TRAJECTORIES
+  //system("gnuplot 'plot-trajectories.gpl'");
+  #endif
 
   return 0;
 }

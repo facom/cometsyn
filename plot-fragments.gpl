@@ -1,24 +1,30 @@
+load "analysis.cfg"
 load "fragments.gph"
-#size=30*rf/Rc
-size=5
-nfrag=nlarge+ndebris
-facvel=0.5*1
+
+size=2
+nfrag=nlarge_end+ndebris_end
+facvel=0.2*facvel
 
 #unset xtics;unset ytics;unset ztics
 #unset border
-set view 0,0
+#set view 0,0
 
 set view equal xyz
 set label "x" at Rmax/1E3,0,0
 set label "y" at 0,Rmax/1E3,0
 set label "z" at 0,0,Rmax/1E3
 
-set title 'Core fragments:'.title
 splot \
-file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::::nlarge-1 not w p ps size pt 7 lt 1,\
-file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::nlarge t 'Debris' w p ps 1 pt 7 lt 3,\
-file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3):($5*UL/1E3/UT*Rmax*facvel):($6*UL/1E3/UT*Rmax*facvel):($7*UL/1E3/UT*Rmax*facvel) every ::::nlarge-1 t 'Large vel.' w vec lt 1,\
-file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3):($5*UL/1E3/UT*Rmax*facvel):($6*UL/1E3/UT*Rmax*facvel):($7*UL/1E3/UT*Rmax*facvel) every ::nlarge t 'Debris vel.' w vec lt 3,\
-'axes.pos' u ($1*Rmax/1E3):($2*Rmax/1E3):($3*Rmax/1E3) w l not
+file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::0::1 t 'Sunward' w vec lt 7,\
+file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::1::2 t 'Earth' w vec lt 3,\
+file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::2::3 t 'MoI' w vec lw 5 lt 2,\
+file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::4::4 not w vec lw 5 lt 2,\
+file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::4::5 not w vec lw 5 lt 2,\
+file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::5::5+nlarge_end-1 not w p ps size pt 7 lt 1,\
+file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::5+nlarge_end t 'Debris' w p ps 1 pt 7 lt 3,\
+file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3):($5*UL/1E3/UT*Rmax*facvel):($6*UL/1E3/UT*Rmax*facvel):($7*UL/1E3/UT*Rmax*facvel) every ::5::5+nlarge_end-1 t 'Large vel.' w vec lt 1,\
+file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3):($5*UL/1E3/UT*Rmax*facvel):($6*UL/1E3/UT*Rmax*facvel):($7*UL/1E3/UT*Rmax*facvel) every ::5+nlarge_end t 'Debris vel.' w vec lt 3,\
+'axes.pos' u ($1*Rmax/1E3):($2*Rmax/1E3):($3*Rmax/1E3) not w l lt 1 
 
 pause -1
+

@@ -1,12 +1,6 @@
 file='comet-fragments.dat'
 title='t = -1.00 yrs'
-nfrag=60
-nlarge=10
-ndebris=50
-tini=-1.000000e+00
-UM=1.988920e+30
-UL=1.495979e+11
-UT=3.155760e+07
+facvel=1
 Rmax=1.000000e+04
 Rc=1.000000e+04
 rf=2.466212e+03

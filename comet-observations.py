@@ -46,6 +46,36 @@ earthdata=loadtxt("comet-earth.dat")
 xearth=earthdata[:,1:7]
 
 #############################################################
+#SELECT SNAPSHOT
+#############################################################
+config={}
+execfile("fragments.gph",config);
+
+nfrag=config['nfrag']
+nlarge=config['nlarge']
+ndebris=config['ndebris']
+tini=config['tini']
+
+print "Orbital properties:"
+print "\tNumber of points:%d"%nobs
+print "\tNumber of fragments:%d"%nfrag
+print "\tLarge fragments:%d"%nlarge
+print "\tDebris:%d"%ndebris
+
+try:
+    iobs=int(argv[1])
+except:
+    iobs=0
+if iobs>=nobs:
+    print "Maximum snapshot %d (t = %e)"%(norb,ts[nobs-1]+tini)
+    exit(1)
+
+t=ts[iobs]
+print "Snaptshot: %d, t - tper = %.2e yrs"%(iobs,t+tini)
+print "Integration time: %.2e yrs = %.2e days"%(t,t*365.25)
+exit(0)
+
+#############################################################
 #DIRECTIONS OBSERVED
 #############################################################
 dirdata=loadtxt("comet-dirs.dat")

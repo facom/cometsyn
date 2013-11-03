@@ -49,6 +49,7 @@ using namespace std;
 #define AU (GSL_CONST_MKSA_ASTRONOMICAL_UNIT) //m
 #define HOURS (3600.0) //s
 #define YEAR (365.25*GSL_CONST_MKSA_DAY) //s
+#define DAY (GSL_CONST_MKSA_DAY) //s
 #define MEARTH (5.9736E24) //kg
 #define REARTH (6.371E6) //m
 #define GCONST (GSL_CONST_MKSA_GRAVITATIONAL_CONSTANT) // m^3 / (kg s^2)
@@ -70,7 +71,7 @@ typedef FILE* file;
 real UL,UM,UT,GPROG;
 real ALPHA;
 real RHODUST,RHOCOMET,FR;
-int NPARTICLES;
+int NPARTICLES,NLARGE,NDEBRIS;
 
 //ELEMENTS
 /*
@@ -85,14 +86,15 @@ int NPARTICLES;
   8 - PER: Time scale (period in case of elliptic orbits)
   9 - TPER: Time of periapse passage
   10 - AXISZ: Angle inclination of axis respect to orbit normal
-  11 - AXISXY: Acimutal angle of body at periapse (x-axis: sun-periapse)
+  11 - AXISXY: Azimutal angle of body at periapse (x-axis: sun-periapse)
+  12 - MASS: Mass
  */
-#define NELEMS 12
+#define NELEMS 13
 
 enum ElementsEnum {RP,ECC,INC,LNODE,ARGP,M0,T0,MU,
-		   TPER,PER,AXISZ,AXISXY,ENDELEM};
+		   TPER,PER,AXISZ,AXISXY,EMASS,ENDELEM};
 char Elements[][10]={"RP","ECC","INC","LNODE","ARGP","M0","T0","MU",
-		     "TPER","PER","AXISZ","AXISXY"};
+		     "TPER","PER","AXISZ","AXISXY","EMASS"};
 
 //STATE VECTOR
 #define NSTATE 7
@@ -228,6 +230,7 @@ void stateOrbit(double t,double e[],double x[])
 {
   e[T0]=(e[TPER]-t);
   conics_c(e,0,x);
+  x[MASS]=e[EMASS];
 }
 
 void orbitNormal(double e[],double n[])
@@ -418,14 +421,12 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     gb[1]=0.0;
     gb[2]=0.0;
     for(j=1;j<=nlarge&&i>0;j++){
-      if(i==j) continue;
+      if(i==j || Rs[j-1]==0) continue;
       kj=NSTATE*j;
       ri=y+k;
       rj=y+kj;
       Mp=Ms[j-1];
       epsoft=0.0;
-
-
 
       vsub_c(ri,rj,Rij);
       D=vnorm_c(Rij);
@@ -436,9 +437,11 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
 
 	//ANNOUNCE IT
 	fprintf(stdout,"\t\tParticle %d has collided with particle %d\n",i-1,j-1);
+	/*
 	fprintf(stdout,"\t\t\tAbsorbed particle: %d, Ri = %e m, Mi = %e kg\n",i,Rs[i-1]*UL,Ms[i-1]*UM);
 	fprintf(stdout,"\t\t\tAbsorber fragment: %d, Rj = %e m, Mj = %e kg\n",j,Rs[j-1]*UL,Ms[j-1]*UM);
 	fprintf(stdout,"\t\t\tDistance: %e m < %e m\n",D*UL,(Rs[i-1]+Rs[j-1])*UL);
+	*/
 
 	//RESET GRADIENT FOR COLLIDED PARTICLE
 	memset(dydt+k,0,NSTATE*sizeof(dydt[0]));
@@ -480,6 +483,8 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
 
 	//REDUCE NUMBER OF PARTICLES
 	NPARTICLES--;
+	if(i<=nlarge) NLARGE--;
+	else NDEBRIS--;
 
 	//RESET CALCULATION
 	goto init;
@@ -643,5 +648,13 @@ void earthObservations(double t,double eE[],double eC[],double y[],double x[])
   //ROTATE POSITIONS
   vsubg_c(y,xE,NSTATE,xCE);
   rotateState(RE,xCE,x);
+
+  //MASS
+  x[NSTATE-1]=y[NSTATE-1];
+  /*
+  fprintf(stdout,"Input state:");fprintf_vec(stdout,"%e ",y,NSTATE);
+  fprintf(stdout,"Output state:");fprintf_vec(stdout,"%e ",x,NSTATE);
+  exit(0);
+  //*/
 }
 

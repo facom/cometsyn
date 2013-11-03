@@ -1,6 +1,9 @@
-set title 'Following 58 fragments'
+set view equal xyz
+set title 'Following 47 fragments'
+udir=10
 set xlabel 'x(km)';set ylabel 'y(km)';set zlabel 'z(km)'
 splot \
+'output/fragment_large-00000.dat' u (0*$2):(0*$3):(0*$4):(-$2/sqrt($2*$2+$3*$3+$4*$4)*udir):(-$3/sqrt($2*$2+$3*$3+$4*$4)*udir):(-$4/sqrt($2*$2+$3*$3+$4*$4)*udir) w vec not,\
 'output/fragment_large-00000.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 2 lt 1,\
 'output/fragment_large-00001.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 2 lt 1,\
 'output/fragment_large-00002.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 2 lt 1,\
@@ -50,15 +53,5 @@ splot \
 'output/fragment_debris-00046.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
 'output/fragment_debris-00047.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
 'output/fragment_debris-00048.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00049.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00050.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00051.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00052.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00053.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00054.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00055.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00056.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00057.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00058.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3,\
-'output/fragment_debris-00059.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3
+'output/fragment_debris-00049.dat' u (($9-$2)*1.495979e+08):(($10-$3)*1.495979e+08):(($11-$4)*1.495979e+08) not w lp pt 7 ps 1 lt 3
 pause -1

@@ -186,8 +186,8 @@ int main(int argc,char *argv[])
   tini=-1.0;//yrs before periapse
   tint=1.5; //yrs of integration time
   dt=eC[PER]/1000;//Time step
-  //*
-  dt=1/365.25;
+  /*
+  dt=1/365.25/20;
   tint=100*dt;
   //*/
   /*
@@ -195,7 +195,7 @@ int main(int argc,char *argv[])
   tint=20*DAY/UT;
   dt=0.1*DAY/UT;
   */
-  nout=3;
+  nout=1;
 
   //////////////////////////////////////////
   //COMETARY ORBIT
@@ -541,6 +541,7 @@ int main(int argc,char *argv[])
   int n=0;
   int nsteps=(int)(tint/dt);
   int nscreen=nsteps/10;
+  nscreen=1
   bool qfinal=false;
   fprintf(stdout,"Number of steps:%d\n",nsteps);
   iout=1;

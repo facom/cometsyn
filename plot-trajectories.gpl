@@ -1,5 +1,5 @@
 set view equal xyz
-set title 'Following 47 fragments'
+set title 'Following 42 fragments'
 udir=10
 set xlabel 'x(km)';set ylabel 'y(km)';set zlabel 'z(km)'
 splot \

@@ -1,0 +1,45 @@
+
+Description of Table Columns
+----------------------------
+
+"Object Designation" 
+    Name and/or designation of the asteroid or comet 
+
+"Epoch" 
+    Epoch of the osculating orbital elements 
+    (Modified Julian Date = Julian Date - 2400000.5) 
+
+"Ref." 
+    Orbit solution reference: "JPL..." = Jet Propulsion Laboratory, 
+    "MPC..." = Minor Planet Center, "IHW..." = International Halley Watch,
+    "BM..." = Brian G. Marsden, and "BGMCAT..." = Brian G. Marsden Catalog 
+
+"a (AU)" 
+    Semi-major axis (AU) 
+
+"q (AU)" 
+    Perihelion distance (AU) 
+
+"e" 
+    Eccentricity 
+
+"i (deg)" 
+    Inclination (degrees, J2000 ecliptic) 
+
+"W (deg)" 
+    Longitude of the ascending node (degrees, J2000 ecliptic) 
+
+"w (deg)" 
+    Argument of perihelion (degrees, J2000 ecliptic) 
+
+"M (deg)" 
+    Mean anomoly (degrees) 
+
+"TP" 
+    Time of perihelion passage (YYYYMMDD.DDDDD) 
+
+"P (yr)" 
+    Orbital period (years) 
+
+"Rec.#" 
+    DASTCOM record number 

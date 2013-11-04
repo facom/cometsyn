@@ -13,12 +13,20 @@ from os import system
 #############################################################
 NSTATE=7
 NORM=linalg.norm
+D2R=pi/180
 DAY=86400
 DIAG=linalg.eig
 
 #############################################################
 #UTIL ROUTINES
 #############################################################
+def scinot(value,fmt="%.2f"):
+    exponent=floor(log10(value))
+    mantisa=value/10**exponent
+    strval=fmt%mantisa
+    str=r'$%s\times 10^{%d}$'%(strval,exponent)
+    return str
+
 def title(text):
     print "*"*80,"\n",text,"\n","*"*80,"\n"
 
@@ -61,6 +69,16 @@ tint=comconf['tint']
 UL=comconf['UL']
 UT=comconf['UT']
 UM=comconf['UM']
+
+#//////////////////////////////////////////////////
+#DATES
+#//////////////////////////////////////////////////
+fdate=open("dates.dat","r")
+dates=[]
+for line in fdate:
+    tphys,date=line.split("=")
+    dates+=[date.strip()]
+fdate.close()
 
 #//////////////////////////////////////////////////
 #OBSERVATIONS
@@ -288,7 +306,7 @@ def Snapshot(iobs=1,facvel=1,**args):
     print "Maximum separation velocity: %e km/s"%(vmax/1E3)
 
     print "Maximum coordinates large fragments: %e,%e,%e km"%(rmax_large[0],rmax_large[1],rmax_large[2])
-    print "Maximum coordinates debris: %e,%e,%e km/s"%(rmax_debris[0],rmax_debris[1],rmax_debris[2])
+    print "Maximum coordinates debris: %e,%e,%e km"%(rmax_debris[0],rmax_debris[1],rmax_debris[2])
 
     #//////////////////////////////////////////
     #//SAVE PLOTTING CONFIGURATION
@@ -321,13 +339,13 @@ facvel=%e
     system("gnuplot plot-fragments.gpl")
 
 #////////////////////////////////////////
-#OBSERVATIONS
+#DISTRIBUTION
 #////////////////////////////////////////
-def Observation(iobs=1,rmax=1E8,**args):
+def Distribution(iobs=1,rmax=1E8,**args):
     """
     Plot a snapshot of the fragments positions
     """
-    title("Observation")
+    title("Distribution")
     if iobs>ncom:
         print "Maximum snapshot %d (t = %e)"%(ncom,ts[-1]+tini)
         exit(1)
@@ -344,7 +362,7 @@ def Observation(iobs=1,rmax=1E8,**args):
     #**************************************************
     #PREPARE FIGURE
     #**************************************************
-    figfile="animation/plot-snap_%05d.png"%iobs
+    figfile="animation/distribution-snap_%05d.png"%iobs
     fig=plt.figure(figsize=(8,8))
     plt.close("all")
     ax=fig.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
@@ -428,6 +446,154 @@ def Observation(iobs=1,rmax=1E8,**args):
     fig.savefig(figfile);
 
 #////////////////////////////////////////
+#DISTRIBUTION
+#////////////////////////////////////////
+def Observation(iobs=1,field=0,**args):
+    """
+    Plot observation
+    """
+    title("Observation")
+    if iobs>ncom:
+        print "Maximum snapshot %d (t = %e)"%(ncom,ts[-1]+tini)
+        exit(1)
+
+    print "Observation of Debris Zone at Snapshot %d"%iobs
+    iobs-=1
+
+    #**************************************************
+    #BASIC INFORMATION
+    #**************************************************
+    t=ts[iobs]
+    date=dates[iobs]
+    print "Time since integration start: t = %e UL = %e s = %e days"%(t,t*UT,t*UT/DAY)
+    print "Date: %s"%date
+    print 
+
+    #**************************************************
+    #PREPARE FIGURE
+    #**************************************************
+    figfile="animation/picture-snap_%05d.png"%iobs
+    fig=plt.figure(figsize=(8,8))
+    plt.close("all")
+    ax=fig.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
+
+    #**************************************************
+    #PLOT
+    #**************************************************
+    npart=0
+    ax.plot([0],[0],'k+',markersize=20)
+
+    #GET GLOBAL PROPERTIES
+    rmaxp=abs(xs_obs[:nlarge,iobs,0:2]).max()*UL
+    rmedp=abs(xs_obs[:nlarge,iobs,0:2]).mean()*UL
+    print "Largest distance to large particles: %e km"%(rmaxp/1E3)
+    print "Average distance to particles: %e km"%(rmedp/1E3)
+    print 
+
+    rmaxp=abs(xs_obs[nlarge:,iobs,0:2]).max()*UL
+    rmedp=abs(xs_obs[nlarge:,iobs,0:2]).mean()*UL
+    print "Largest distance to debris: %e km"%(rmaxp/1E3)
+    print "Average distance to debris: %e km"%(rmedp/1E3)
+    print 
+
+    D=xs_obs[:,iobs,2].mean()
+    print "Average distance : %e UL = %e km"%(abs(D),abs(D)*UL/1E3)
+    zmin=xs_obs[:,iobs,2].min()-D
+    zmax=xs_obs[:,iobs,2].max()-D
+    print "Depth debris zone : (%e : %e) UL = (%e : %e) km"%(zmin,zmax,
+                                                             zmin*UL/1E3,zmax*UL/1E3)
+    print
+
+    facdebris=2
+    dmax=0
+    rmax=0
+    rsun=NORM(xcm_orb[iobs,0:3])
+    for i in xrange(0,int(nfrag)):
+        if i<nlarge:type=1
+        if i>=nlarge:type=2
+        rf=xs_obs[i,iobs,0:NSTATE]
+        M=rf[NSTATE-1]
+        if M==0:continue
+        npart+=1
+        x=rf[0]
+        y=rf[1]
+        z=rf[2]
+
+        rmax=max(rmax,NORM(rf[0:2]))
+        dalpha=x/abs(D)/D2R*3600
+        ddelta=y/abs(D)/D2R*3600
+
+        dmax=max(dmax,abs(dalpha),abs(ddelta))
+
+        size=5
+        args=dict(marker='o',markeredgecolor='none')
+        if type==1:
+            args['color']='r'
+            args['markersize']=size
+        else:
+            args['color']='b'
+            args['markersize']=size/facdebris
+
+        ax.plot([dalpha],[ddelta],**args)
+
+    print "Plotting %d fragments..."%npart
+
+    #**************************************************
+    #AXIS
+    #**************************************************
+    zdir=zaxis[iobs,0:3]
+    zdir=5*dmax*zdir
+    ax.plot([0.0,zdir[0]],[0.0,zdir[1]],'k-',linewidth=2,linestyle='-')
+    ax.text(zdir[0],zdir[1],"A",color='k',fontsize=10,
+            bbox=dict(boxstyle='square,pad=0.5',fc="1.0",ec="none"))
+
+    zsun=dsun[iobs,0:3]
+    zsun=5*dmax*zsun
+    ax.plot([0.0,zsun[0]],[0.0,zsun[1]],'k-',linewidth=2,linestyle='-')
+    ax.text(zsun[0],zsun[1],"S",color='k',fontsize=10,
+            bbox=dict(boxstyle='square,pad=0.5',fc="1.0",ec="none"))
+
+    #**************************************************
+    #DECORATION
+    #**************************************************
+    ax.set_title(r"$t$ = %.2f days, r = %s AU, $\Delta$ = %s AU"%(t*UT/DAY,scinot(rsun),scinot(abs(D))),
+                 position=(0.5,1.05))
+
+    ax.text(0.98,0.95,date,
+            horizontalalignment='right',
+            fontsize=12,
+            transform=ax.transAxes)
+    
+    ax.text(0.02,0.95,r"$r_{\rm max}$ = %s km"%(scinot(rmax*UL/1E3)),
+            horizontalalignment='left',
+            fontsize=12,
+            transform=ax.transAxes)
+    
+    dscale=10**(floor(log10(dmax)))
+    equiv=dscale/3600.0*D2R*abs(D)*UL/1E3
+    ax.text(0.98,0.02,"%.0f arcsec = %s km"%(dscale,scinot(equiv)),
+            horizontalalignment='right',
+            fontsize=10,
+            transform=ax.transAxes)
+
+    ax.text(1.02,1.0,"Ferrin & Zuluaga (in prep. 2013)",
+            verticalalignment='top',horizontalalignment='left',
+            rotation=270,fontsize=10,
+            transform=ax.transAxes)
+
+    ax.set_xlabel(r"$\Delta \alpha$ (arcsec)")
+    ax.set_ylabel(r"$\Delta \delta$ (arcsec)")
+
+    dmax*=1.5
+    ax.set_xlim((-dmax,dmax))
+    ax.set_ylim((-dmax,dmax))
+
+    #**************************************************
+    #SAVEFIG
+    #**************************************************
+    fig.savefig(figfile);
+
+#////////////////////////////////////////
 #SNAPSHOT
 #////////////////////////////////////////
 def Orbit(iobs=1,fac=1e6,**args):
@@ -447,7 +613,10 @@ def Orbit(iobs=1,fac=1e6,**args):
     #CREATE FRAGMENT FILE
     #**************************************************
     t=ts[iobs]
+    date=dates[iobs]
     print "Time since integration start: t = %e days"%(t*365.25)
+    print "Date: %s"%date
+    print 
 
     rmax=vmax=0
     nlarge_snap=nlarge
@@ -505,6 +674,8 @@ Snapshot(iobs=1,facvel=1)
 Observation(iobs=1)
 exit(0)
 Orbit(iobs=1)
+exit(0)
+Observation(iobs=1)
 exit(0)
 #"""
 

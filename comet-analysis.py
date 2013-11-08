@@ -233,7 +233,11 @@ def Snapshot(iobs=1,facvel=1,**args):
     #CREATE FRAGMENT FILE
     #**************************************************
     t=ts[iobs]
+    date=dates[iobs]
     print "Time since integration start: t = %e days"%(t*365.25)
+    print "Date: %s"%date
+    print 
+
     f=open("comet-fragments-snapshots.dat","w")
     rmax=vmax=0
     rmax_large=zeros(3)

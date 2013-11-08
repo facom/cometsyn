@@ -10,6 +10,11 @@ facvel=0.2*facvel
 #set view 0,0
 
 set view equal xyz
+
+set xlabel 'x(km)'
+set ylabel 'y(km)'
+set zlabel 'z(km)'
+
 set label "x" at Rmax/1E3,0,0
 set label "y" at 0,Rmax/1E3,0
 set label "z" at 0,0,Rmax/1E3
@@ -20,10 +25,10 @@ file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::1:
 file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::2::3 t 'MoI' w vec lw 5 lt 2,\
 file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::4::4 not w vec lw 5 lt 2,\
 file u ($2*0):($3*0):($4*0):($2*Rmax/1E3):($3*Rmax/1E3):($4*Rmax/1E3) every ::4::5 not w vec lw 5 lt 2,\
-file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::5::5+nlarge_end-1 not w p ps size pt 7 lt 1,\
-file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::5+nlarge_end t 'Debris' w p ps 1 pt 7 lt 3,\
 file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3):($5*UL/1E3/UT*Rmax*facvel):($6*UL/1E3/UT*Rmax*facvel):($7*UL/1E3/UT*Rmax*facvel) every ::5::5+nlarge_end-1 t 'Large vel.' w vec lt 1,\
 file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3):($5*UL/1E3/UT*Rmax*facvel):($6*UL/1E3/UT*Rmax*facvel):($7*UL/1E3/UT*Rmax*facvel) every ::5+nlarge_end t 'Debris vel.' w vec lt 3,\
+file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::5::5+nlarge_end-1 not w p ps size pt 7 lt 1,\
+file u ($2*UL/1E3):($3*UL/1E3):($4*UL/1E3) every ::5+nlarge_end t 'Debris' w p ps 1 pt 7 lt 3,\
 'axes.pos' u ($1*Rmax/1E3):($2*Rmax/1E3):($3*Rmax/1E3) not w l lt 1 
 
 pause -1

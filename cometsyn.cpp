@@ -73,9 +73,79 @@ Object Name        = ISON (C/2012 S1)
 Primary SPKID      = 1003203
 Primary designation= C/2012 S1
 Aliases            = K12S010
+Kernel generated with : http://ssd.jpl.nasa.gov/x/spk.html
  */
 #define ISONID "1003203" /*SPKID */
 #define ISONSPK "ison-perihelion.bsp" /* ISON */
+#define ISONTP "11/28/2013 18:51:11.52" /*PERIHELION*/
+#define ISONFT "11/10/2013 00:00:00" /*FRAGMENTATION*/
+
+/*
+Object Name        = ENSOR (C/1925 X1)
+Primary SPKID      = 9905348
+Primary designation= C/1925 X1
+Aliases            = 
+Kernel generated with : http://ssd.jpl.nasa.gov/x/spk.html
+ */
+#define ENSORID "9905348" /*SPKID */
+#define ENSORSPK "ensor.bsp" /*ENSOR (C/1925 X1)*/
+#define ENSORTP "02/11/1926 23:20:49.92" /*PERIHELION*/
+#define ENSORFT "02/11/1926 23:20:49.92" /*FRAGMENTATION*/
+
+/*
+Object Name        = LINEAR (C/1999 S4)
+Primary SPKID      = 1000273
+Primary designation= C/1999 S4
+Aliases            = J99S040 
+Kernel generated with : http://ssd.jpl.nasa.gov/x/spk.html
+Desintegration report: 
+http://www.ing.iac.es/PR/press/ing300.html
+http://apod.nasa.gov/apod/ap000811.html
+ */
+#define LINEARID "1000273" /*SPKID*/
+#define LINEARSPK "linear.bsp" /*LINEAR (C/1999 S4)*/
+#define LINEARTP "07/26/2000 03:55:35.0" /*PERIHELION*/
+#define LINEARFT "07/25/2000 00:00:00" /*FRAGMENTATION*/
+
+/*
+Object Name        = Elenin (C/2010 X1)
+Primary SPKID      = 1003113
+Primary designation= C/2010 X1
+Aliases            = K10X010
+Kernel generated with : http://ssd.jpl.nasa.gov/x/spk.html
+Desintegration report: http://www.universetoday.com/88494,
+http://www.thunderbolts.info/wp/2011/10/06/comet-elenin%E2%80%94the-debate-that-never-happened/
+ */
+#define ELENINID "1003113" /*SPKID*/
+#define ELENINSPK "elenin.bsp" /*ELENIN (C/2010 X1)*/
+#define ELENINTP "09/10/2011 17:15:51.8" /*PERIHELION*/
+#define ELENINFT "08/19/2011 00:00:00" /*FRAGMENTATION*/
+
+/*
+Object Name        = Schwassmann-Wachmann 3
+Primary SPKID      = 1000394
+Primary designation= 73P
+Aliases            = 1979 P1, 1930 J1, 1994w, 1990 VIII, 1989d1, 1979g, 1979 VIII, 1930d, 1930 VI, 4000073
+Kernel generated with : http://ssd.jpl.nasa.gov/x/spk.html
+Desintegration report: 
+ */
+#define SW3ID "1000394" /*SPKID*/
+#define SW3SPK "sw3.bsp" /*73P/SCHWASSMANN-WACHMANN 3*/
+#define SW3TP "09/22/1995 21:21:23.9" /*PERIHELION*/
+#define SW3FT "09/22/1995 00:00:00" /*FRAGMENTATION*/
+
+/*
+Object Name        = Schwassmann-Wachmann 3, Fragment B
+Primary SPKID      = 1000320
+Primary designation= 73P-B
+Aliases            = Kernel generated with : http://ssd.jpl.nasa.gov/x/spk.html
+Desintegration report: 
+http://arxiv.org/abs/0904.4733
+ */
+#define SW3BID "1000320" /*SPKID*/
+#define SW3BSPK "sw3B.bsp" /*73P-B*/
+#define SW3BTP "09/22/1995 21:21:23.9" /*PERIHELION*/
+#define SW3BFT "04/01/2006 00:00:00" /*FRAGMENTATION*/
 
 //COMETARY KERNELS
 //GET OTHER COMETARY KERNELS HERE: http://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/comets/
@@ -97,8 +167,11 @@ Aliases            = K12S010
 #define REARTH (6.371E6) //m
 #define GCONST (GSL_CONST_MKSA_GRAVITATIONAL_CONSTANT) // m^3 / (kg s^2)
 #define CLIGHT (GSL_CONST_MKSA_SPEED_OF_LIGHT) // m / s
+#define KBOLTZ (GSL_CONST_MKSA_BOLTZMANN) //j / K
+#define MH2O 2.98897E-26 //kg
 
 #define QPR 1.0 //Radiation pressure coefficient
+#define ZO 3E17/(1E-4)  //Molecules / m^2 s
 
 #define PI M_PI
 #define PI2 (PI*PI)
@@ -114,8 +187,9 @@ typedef FILE* file;
 
 real UL,UM,UT,GPROG;
 real ALPHA;
-real RHODUST,RHOCOMET,FR;
+real RHODUST,RHOCOMET,RHOVOLATILES,FR;
 int NPARTICLES,NLARGE,NDEBRIS;
+double AR,AT,AN,AMREF;
 
 //ELEMENTS
 /*
@@ -468,6 +542,134 @@ double randReal(void)
   return gsl_rng_uniform(RANGEN);
 }
 
+/*
+  Ishiguro et al. (2006) originally from Marsden & Zekanina (1973)
+
+  Z = Zo g(r)
+
+  Where Zo = 3 x 10^17 molecules / cm^2 s 
+*/
+double sublimationRate(double r /*m*/,
+		       /*WATER SUBLIMATION*/
+		       double ao=0.111262/*m/s^2*/,
+		       double ro=2.808/*AU*/,
+		       double mo=2.15,
+		       double no=5.093,
+		       double ko=4.6142
+		       )
+{
+  double Zo,Z;
+  double g;
+
+  Zo=ZO;
+  g=ao/pow((r/AU/ro),mo)/pow((1+pow((r/AU/ro),no)),ko);
+  Z=Zo*g;
+
+  return Z;
+}
+
+/*
+  Drying function
+ */
+double dryingFunction(double r)
+{
+  double dF=1;
+  double Z;
+
+  #ifdef DRYING_CONSTANT
+  //==================================================
+  //CONSTANT SUBLIMATION RATE AFTER 1 AU
+  //==================================================
+  if(r<AU){
+    Z=sublimationRate(r);
+    dF=ZO/Z;
+  }
+  #endif
+
+  #ifdef DRYING_EXPONENTIAL
+  //==================================================
+  //DECAYING SUBLIMATION
+  //==================================================
+  if(r<AU){
+    Z=sublimationRate(r);
+    dF=ZO/Z*pow(r/AU,1.58);
+  }
+  #endif
+
+  #ifdef DRYING_NULL
+  //==================================================
+  //NO DYRING
+  //==================================================
+  dF=1.0;
+  #endif
+
+  return dF;
+}
+
+/*
+  See Sosa & Fernandez (2008)
+ */
+double outflowVelocity(double r,
+		       /*WATER*/
+		       double To=323.0,
+		       double nT=0.5,
+		       double csi=0.5)
+{
+  double T;
+  double vth,u;
+
+  T=To/pow(r/AU,nT);
+
+  vth=sqrt(8*KBOLTZ*T/(PI*MH2O));
+
+  /*
+  fprintf(stdout,"\tTemperature: %e K / s\n",T);
+  fprintf(stdout,"\tThermal velocity: %e m/s / s\n",vth);
+  //*/
+
+  u=csi*vth;
+  return u;
+}
+
+void rocketAcceleration(double r,
+			  double M,
+			  double R,
+			  /*Drying function*/
+			  double (*dFunc)(double),
+			  double *J,double *dMdt)
+{
+  double Z,A,Q,u,dF;
+
+  A=2*PI*R*R;/*m^2*/
+
+  Z=sublimationRate(r);/*molecules/m^2 s*/
+
+  Q=A*Z;/*molecules/s*/
+
+  dF=dFunc(r);/*Adimensional: drying function*/
+  Q*=dF;
+
+  u=outflowVelocity(r);/*m/s*/
+
+  *dMdt=Q*MH2O; /*kg*/
+
+  *J=Q*MH2O*u/M;/*m/s^2*/
+
+  /*
+  fprintf(stdout,"\tDistance = %e AU\n",r/AU);
+  fprintf(stdout,"\tArea for radius R = %e m: %e m^2\n",R,A);
+  fprintf(stdout,"\tSublimation rate: %e molec / m^2 s\n",Z);
+  fprintf(stdout,"\tSublimation flux Q: %e molec\n",Q);
+  fprintf(stdout,"\tDrying function: %e\n",dF);
+  fprintf(stdout,"\tOutflow velocity: %e m/s\n",u);
+  fprintf(stdout,"\tTotal outflow momentum: %e m/s\n",Q*MH2O*u);
+  fprintf(stdout,"\tComet mass : %e kg\n",M);
+  fprintf(stdout,"\tMass loss: %e kg/s\n",*dMdt);
+  fprintf(stdout,"\tAcceleration : %e m/s^2\n",*J);
+  //*/
+
+}
+
 int gravSystem(double t,const double y[],double dydt[],void* params)
 {
   int i,j,k,kj;
@@ -483,15 +685,17 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
   double *Rs=ps+2;
   double *Ms=ps+2+nfrag;
 
-  double Mp;
+  double Mp,Rf,Rp,Mc,dMdt,Ar;
+  double frp,rhom,Md;
   const double *r,*v;
   const double *ri,*rj;
   double *dyjdt,*dyidt;
   double Rij[3];
   double beta,D,Dsoft,epsoft,D3,M,R;
-  double gs[]={0,0,0},rad[]={0,0,0},evap[]={0,0,0},gb[]={0,0,0};
+  double gs[]={0,0,0},rad[]={0,0,0},rocket[]={0,0,0},gb[]={0,0,0};
   double ur[3],ut[3],vr[3],vt[3],pf[3],vrmag=0,vtmag=0,fr=1,ft=0,gmag=0;
   bool qcolision;
+  double Mf;
 
   //////////////////////////////////////////
   //INITIALIZE: dx/dt = 0
@@ -512,13 +716,32 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
  init:
   for(i=0;i<=nfrag;i++){
 
+    if(i==0) Mf=ps[2*nfrag+3];
+    else Mf=Ms[i-1];
+    //fprintf(stdout,"\nIntegrating particle: %d (Mf = %.11e, Mp = %.11e)\n",i,Mf,y[NSTATE*i+6]);
+
     //AVOID INTEGRATION OF PARTICLES ALREADY ABSORBED
     if(i>0&&Ms[i-1]==0){
       continue;
     }
+    
+    //FRESH RADIUS
+    if(i>0) Rf=Rs[i-1];
+    else Rf=ps[2*nfrag+2];
 
     qcolision=false;
     k=NSTATE*i;
+
+    //ACTUAL RADIUS
+    Md=FR*Mf;
+    Mp=y[6+k];
+    frp=Md/Mp;
+    rhom=1/((1-frp)/RHOVOLATILES+frp/RHODUST);
+    Rp=pow((Mp/(4*PI/3*rhom)),1./3);
+    /*
+    fprintf(stdout,"\tMd = %.11e, Mp = %.11e, frp = %.11e, rhom = %.11e, Rp = %.11e, Rf = %.11e\n",
+	    Md,Mp,frp,rhom*UM/(UL*UL*UL),Rp,Rf);
+    //*/
 
     //DISTANCE TO SUN
     D=vnorm_c(y+k);D3=D*D*D;
@@ -553,10 +776,73 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     #else
     memset(gs,0,3*sizeof(gs[0]));
     #endif
+
+    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    //ROCKET FORCE: FORCE COMING FROM SUBLIMATION
+    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #ifdef ROCKET_FORCE
+    double go,g,J;
+
+    //ONLY FOR LARGE PARTICLES
+    Mp=y[6+k];
+    if(i>0) Mf=Ms[i-1];
+    else Mf=ps[2*nfrag+3];
+    
+    if(Mp<=FR*Mf){
+      fprintf(stdout,"\t\tPARTICLE %d HAS DRY OUT (Mp = %e < Mr = %e [=%e x %e])\n",
+	      i,Mp,FR*Mf,FR,Mf);
+      Ms[i-1]=FR*Mf;
+    }
+    if(Rp>RMIN_ROCKET/UL /*Minimum size of evaporable rubble*/ 
+       && 
+       Mp>FR*Mf /*Rubble still has enough ice to evaporate*/
+       ){
+      rocketAcceleration(D*UL,Mp*UM,Rp*UL,dryingFunction,&J,&dMdt);
+      g=sublimationRate(D*UL)/(3E17/1E-4);
+      Ar=J/(AU/(DAY*DAY))/g;
+
+      J/=(UL/(UT*UT));
+      dMdt/=(UM/UT);
+
+      rocket[0]=J*y[0+k]/D3;
+      rocket[1]=J*y[1+k]/D3;
+      rocket[2]=J*y[2+k]/D3;
+
+      /*
+      fprintf(stdout,"****************************************\n");
+      fprintf(stdout,"ROCKET ACCELERATION: PARTICLE %d\n",i);
+      fprintf(stdout,"Present fragment mass: %.11e UM = %.11e kg\n",Mp,Mp*UM);
+      fprintf(stdout,"Fresh fragment mass: %.11e UM = %.11e kg\n",Mf,Mf*UM);
+      fprintf(stdout,"Rocky fragment mass: %.11e UM = %.11e kg\n",FR*Mf,FR*Mf*UM);
+      fprintf(stdout,"Rocket acceleration: %e UL/UT^2\n",J);
+      fprintf(stdout,"Equivalent Ar: %e AU/day^2\n",Ar);
+      fprintf(stdout,"Mass loss: %e UM/UT\n",dMdt);
+      fprintf(stdout,"Rocket force (Sosa & Fernandez):");
+      fprintf_vec(stdout,"%e ",rocket,3);
+      fprintf(stdout,"****************************************\n");
+      //*/
+    }else{ 
+      /*
+      fprintf(stdout,"****************************************\n");
+      fprintf(stdout,"ROCKET ACCELERATION: PARTICLE %d\n",i);
+      fprintf(stdout,"No rocket effect\n");
+      fprintf(stdout,"Rp = %e, Rpmin = %e\n",Rp,RMIN_ROCKET/UL);
+      fprintf(stdout,"Mp = %e, FR Mf = %e\n",Mp,FR*Mf);
+      fprintf(stdout,"****************************************\n");
+      //*/
+      dMdt=0;
+      memset(rocket,0,3*sizeof(rocket[0]));
+    }      
+    #else
+    dMdt=0;
+    memset(rocket,0,3*sizeof(rocket[0]));
+    #endif
     
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //GRAVITATIONAL FORCE FROM OTHER BODIES
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    //fprintf(stdout,"Particle %d testing colisions\n",i);
+    
     #ifdef FRAG_FORCE
     gb[0]=0.0;
     gb[1]=0.0;
@@ -575,6 +861,8 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
       #ifdef ALLOW_COLISION
       //COLISION!
       if(D<(Rs[j-1]+Rs[i-1])){
+
+	fprintf(stdout,"Particle %d colision: %e < %e + %e\n",i,D,Rs[j-1],Rs[i-1]);
 
 	//ANNOUNCE IT
         #ifdef SHOW_COLISION
@@ -654,6 +942,8 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     memset(gb,0,3*sizeof(gb[0]));
     #endif
 
+    //fprintf(stdout,"Particle %d pass colisions\n",i);
+    
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //RADIATION FORCES
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -728,40 +1018,40 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     //*/
 
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    //EVAPORATION RECOIL
-    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #ifdef EVAP_FORCE
-    evap[0]=0.0;
-    evap[1]=0.0;
-    evap[2]=0.0;
-    #else
-    memset(evap,0,3*sizeof(evap[0]));
-    #endif
-
-    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     //TOTAL
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dydt[3+k]=gs[0]+rad[0]+gb[0]+evap[0];
-    dydt[4+k]=gs[1]+rad[1]+gb[1]+evap[1];
-    dydt[5+k]=gs[2]+rad[2]+gb[2]+evap[2];
+    dydt[3+k]=gs[0]+rad[0]+gb[0]+rocket[0];
+    dydt[4+k]=gs[1]+rad[1]+gb[1]+rocket[1];
+    dydt[5+k]=gs[2]+rad[2]+gb[2]+rocket[2];
+
+    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    //MASS-LOSS
+    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    dydt[6+k]=-dMdt;
 
     /*
-    if(i>nlarge){
+    if(i>nlarge || true){
+      if(i==0) Mf=ps[2*nfrag+3];
+      else Mf=Ms[i-1];
       fprintf(stdout,"Particle: %d\n",i);
+      fprintf(stdout,"Fresh mass: %.11e\n",Mf);
+      fprintf(stdout,"Present mass: %.11e\n",y[6+k]);
       fprintf(stdout,"Sun gravitatinal force:");
       fprintf_vec(stdout,"%e ",gs,3);
       fprintf(stdout,"Radiative force:");
       fprintf_vec(stdout,"%e ",rad,3);
       fprintf(stdout,"Fragments gravitational force:");
       fprintf_vec(stdout,"%e ",gb,3);
-      fprintf(stdout,"Evaporation recoil force:");
-      fprintf_vec(stdout,"%e ",evap,3);
+      fprintf(stdout,"Rocket acceleration:");
+      fprintf_vec(stdout,"%e ",rocket,3);
       fprintf(stdout,"Total force:");
       fprintf_vec(stdout,"%e ",dydt+k,NSTATE);
-      exit(0);
+      fprintf(stdout,"Mass-loss: %e\n",dydt[6+k]);
+      //exit(0);
     }
     //*/
   }
+  //exit(0);
 
   return 0;
 }
@@ -837,15 +1127,17 @@ void earthObservations(const char* spkid,double t,double y[],double x[])
 double radiusGenerate(double rmin,double rmax,double alpha)
 {
   double u,r,e,eo,lambda;
-  u=randReal();
-  if(alpha>1){
-    lambda=alpha-1;
-    e=-1/lambda*log(1-u);
-  }else{
-    eo=log10(rmax/rmin);
-    e=eo*u;
-  }
-  r=rmin*pow(10,e);
+  do{
+    u=randReal();
+    if(alpha>1){
+      lambda=alpha-1;
+      e=-1/lambda*log(1-u);
+    }else{
+      eo=log10(rmax/rmin);
+      e=eo*u;
+    }
+    r=rmin*pow(10,e);
+  }while(r>=rmax);
   return r;
 }
-
+       

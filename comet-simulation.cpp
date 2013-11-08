@@ -1,4 +1,13 @@
 //////////////////////////////////////////////////////////////////////////////////
+//    ___                     _   __             
+//   / __\___  _ __ ___   ___| |_/ _\_   _ _ __  
+//  / /  / _ \| '_ ` _ \ / _ \ __\ \| | | | '_ \ 
+// / /__| (_) | | | | | |  __/ |__\ \ |_| | | | |
+// \____/\___/|_| |_| |_|\___|\__\__/\__, |_| |_|
+//                                   |___/       
+// 2013 (C) Jorge Zuluaha, zuluagajorge@gmail.com
+// Instituto de Fisica / FCEN - Universidad de Antioquia
+//////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 // BEHAVIOR
 //////////////////////////////////////////////////////////////////////////////////
@@ -11,17 +20,23 @@
 //**************************************************
 //BEHAVIOR
 //**************************************************
-//#define COMET_PROPERTIES_ONLY
-//#define SHOW_COLISIONS
+#define COMET_PROPERTIES_ONLY
+#define SHOW_COLISION
+
+//DRYING FUNCTION
+//#define DRYING_NULL
+//#define DRYING_CONSTANT
+#define DRYING_EXPONENTIAL
 
 //**************************************************
 //FORCE
 //**************************************************
 #define SUN_FORCE /*FORCE FROM THE SUN*/
 #define FRAG_FORCE /*FORCE FROM LARGE FRAGMENTS*/
-#define RADIATION_FORCE /*RADIATION FORCE*/
+//#define RADIATION_FORCE /*RADIATION FORCE*/
 #define PR_CORRECTION /*POYINTING-ROBERTSON CORRECTION*/
-#define EVAP_FORCE /*EVAPORATION RECOIL*/
+#define ROCKET_FORCE /*EVAPORATION RECOIL*/
+#define RMIN_ROCKET 1.0 /*m*/ /*MINIMUM SIZE FOR ROCKET FORCE*/
 
 //**************************************************
 //INITIAL CONDITIONS
@@ -37,7 +52,7 @@
 //**************************************************
 //OUTPUT
 //**************************************************
-//#define SAVE_TRAJECTORIES
+#define SAVE_TRAJECTORIES
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -72,12 +87,14 @@ int main(int argc,char *argv[])
   int nfrag;
   int nlarge;
   int ndebris;
+  int nboulders;
 
   double mp,Mp,Rp;
   double dx[3];
   double* type;
   double* Ms;
   double* Rs;
+  double* rhos;
   double** xs;
   double r,rp,phi,theta,v;
   int ilarge;
@@ -97,11 +114,12 @@ int main(int argc,char *argv[])
   bool lastreport=false;
   int status;
   double *params;
-  double rmin,alpha;
+  double rpmin,rpmax,alpha;
   int n;
   bool qfinal;
   char date[100];
   double AxisZ,AxisXY;
+  double rhom;
 
   //SET AXIS
   memset(axis,0,NSTATE*sizeof(axis[0]));
@@ -125,8 +143,9 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //TIME
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  Tini_Date="11/03/2013 00:00:00.000 UTC";
+  Tini_Date="11/08/2013 00:00:00.000 UTC";
   Tend_Date="12/28/2013 00:00:00.000 UTC";
+  Tend_Date="11/28/2013 00:00:00.000 UTC";
 
   str2et_c(Tini_Date,&tini);
   str2et_c(Tend_Date,&tend);
@@ -136,7 +155,7 @@ int main(int argc,char *argv[])
   tint=tend-tini;
 
   dt=0.01*DAY/UT;
-  dtout=1*DAY/UT;
+  dtout=0.5*DAY/UT;
   nsteps=(int)(tint/dtout);
   nscreen=ceil(nsteps/10);
   
@@ -159,48 +178,72 @@ int main(int argc,char *argv[])
   AxisXY=0.0*D2R;
 
   //SIZE DISTRIBUTION OF DEBRIS
-  rmin=100E-6 /*m*//UL;
+  rpmin=100E-6 /*m*//UL;
+  rpmax=1.0E0 /*m*//UL;
   alpha=2.0; /*P(r)~r^(-alpha)*/
 
   //DENSITY OF ROCKY FRAGMENTS
   RHODUST=2E3 /*kg/m^3*//(UM/(UL*UL*UL));
-  
-  //MEAN DENSITY OF COMET CORE WHILE HEALTHY
   RHOCOMET=0.6E3 /*kg/m^3*//(UM/(UL*UL*UL));
 
-  //FRACTION OF HEALTHY MASS IN ROCKS+DUST
-  FR=0.5;
+  //FRACTION OF HEALTHY MASS IN ROCK+DUST
+  /*See Greenberg (1998) "Making a cometary nucleus"*/
+  FR=0.26;
+
+  //DENSITY OF VOLATILES
+  RHOVOLATILES=(1-FR)/(1/RHOCOMET-FR/RHODUST);
+  fprintf(stdout,"Density of volatiles: %e UM/UL^3 = %e kg/m^3\n",
+	  RHOVOLATILES,RHOVOLATILES*(UM/(UL*UL*UL)));
 
   //CORE TOTAL RADIUS 
-  Rc=10 /*km*/ *1E3/UL;
+  Rc=2 /*km*/ *1E3/UL;
 
   //SIZE OF INITIAL REGION OF FRAGMENTS AND DEBRIS
   fc=1.5;
+
+  //PERIOD OF ROTATION
+  Prot=3*HOURS /*secs*/ /UT;
+
+  //TYPE II NON GRAVITATIONAL PARAMETER
+  AR=1.5E-8*AU/(DAY*DAY) /*m/s^2*/ /(UL/(UT*UT)); /*73P-Fragment B*/
+  AT=AN=0.0;
+  /*
+    Ishiguro et al. (2006): 
+    Radius: Toth et al. (2003)
+    Density: Boenhdart et al. (2002)
+  */
+  AMREF=4*PI/3*680*680*680*0.6E3 /*kg*/ *(1/UM); 
+  fprintf(stdout,"AMREF = %e UM = %e kg\n",AMREF,AMREF*UM);
+  fprintf(stdout,"AR = %e UL/UT^2 = %e m/s^2 = %e AU/DAY^2\n",
+	  AR,AR*UL/(UT*UT),AR*UL/(UT*UT)/(AU/(DAY*DAY)));
+
+  //NUMBER OF FRAGMENTS AND DEBRIS 
+  nlarge=5; //Number of large particles
+  ndebris=10000; //Number of debris particles
+  nboulders=100; //Among debris how much are boulders (R > 1 m)
+  if(nboulders>ndebris){
+    fprintf(stderr,"Number of boulders (%d) is larger than that of debris (%d)\n",
+	    nboulders,ndebris);
+    exit(0);
+  }
 
   //THICK OF DEBRIS CRUST 
   Rmin=1.0*fc*Rc; /* Minimum radius for debris origin */
   dth=0.1; /* fc Rc */
 
-  //PERIOD OF ROTATION
-  Prot=3*HOURS /*secs*/ /UT;
-
   //HEALTHY CORE MASS
   Mc=4*PI/3*Rc*Rc*Rc*RHOCOMET; 
 
-  //NUMBER OF FRAGMENTS AND DEBRIS 
-  nlarge=50; //Number of large particles
-  ndebris=500; //Number of debris particles
-
   //AVERAGE MASS AND RADIUS OF ROCKY+DUST FRAGMENTS
-  if(nlarge>0) mp=FR*Mc/nlarge; //Average mass of large fragments
+  if(nlarge>0) mp=Mc/nlarge; //Average mass of large fragments
   else mp=0;
-  Rp=pow((mp/RHODUST)/(4*PI/3),1./3);
+  Rp=pow((mp/RHOCOMET)/(4*PI/3),1./3);
 
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //REPORT
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   fprintf(stdout,"Cometary properties:\n");
-  fprintf(stdout,"\tAverage density: %e UM/UL^3 = %e kg/m^3\n",RHODUST,RHODUST*UM/(UL*UL*UL));
+  fprintf(stdout,"\tAverage density comet: %e UM/UL^3 = %e kg/m^3\n",RHOCOMET,RHOCOMET*UM/(UL*UL*UL));
   fprintf(stdout,"\tRotation period: %e UT = %e h\n",Prot,Prot*UT/3600);
   fprintf(stdout,"\tCore radius: %e UL = %e km\n",Rc,Rc*UL/1E3);
   fprintf(stdout,"\tMass: %e UM = %e ton\n",Mc,Mc*UM/1E3);
@@ -233,9 +276,9 @@ int main(int argc,char *argv[])
   //ROTATION MATRICES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //HELIO->ORBIT
-  //twovec_c(radC,XAXIS,normC,ZAXIS,RHO);
+  twovec_c(radC,XAXIS,normC,ZAXIS,RHO);
   //twovec_c(radC,ZAXIS,normC,XAXIS,RHO);
-  twovec_c(radC,XAXIS,normC,YAXIS,RHO);
+  //twovec_c(radC,XAXIS,normC,YAXIS,RHO);
   invert_c(RHO,IRHO);
   //ORBIT->AXIS
   eul2m_c(0.0*D2R,0.0*D2R,0.0*D2R,YAXIS,ZAXIS,YAXIS,ROA);
@@ -257,6 +300,8 @@ int main(int argc,char *argv[])
   Ms=realAlloc(nfrag);
   //Radii
   Rs=realAlloc(nfrag);
+  //Radii
+  rhos=realAlloc(nfrag);
   //Type
   type=realAlloc(nfrag);//Type of fragment: 1-large, 2-debris
   //State
@@ -285,7 +330,7 @@ int main(int argc,char *argv[])
   //SAVE MASS
   memset(xs[i],0,NSTATE*sizeof(xs[0][0]));
   xs[i][6]=Ms[i];
-  Rs[i]=pow(Ms[i]/RHODUST/(4*PI/3),1./3);
+  Rs[i]=pow(Ms[i]/RHOCOMET/(4*PI/3),1./3);
 
   fprintf(ffrag,"\tFragment %d:\n",i);
   fprintf(ffrag,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
@@ -308,13 +353,15 @@ int main(int argc,char *argv[])
     if(i<nlarge){
       type[i]=LARGE;
       Ms[i]=mp;
-      Rs[i]=pow(Ms[i]/RHODUST/(4*PI/3),1./3);
+      Rs[i]=pow(Ms[i]/RHOCOMET/(4*PI/3),1./3);
       ilarge++;
     }
     else{
       type[i]=DEBRIS;
-      Rs[i]=radiusGenerate(rmin,Rc,alpha);
-      Ms[i]=4*PI/3*RHODUST*Rs[i]*Rs[i]*Rs[i];
+      Rs[i]=radiusGenerate(rpmin,rpmax,alpha);
+      if(Rs[i]>RMIN_ROCKET/UL) rhom=RHOCOMET;
+      else rhom=RHODUST;
+      Ms[i]=4*PI/3*rhom*Rs[i]*Rs[i]*Rs[i];
     }
     fprintf(ffrag,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
     fprintf(ffrag,"\t\tMass: %e UM = %e kg\n",Ms[i],Ms[i]*UM);
@@ -428,8 +475,18 @@ int main(int argc,char *argv[])
 
   }
   fclose(ffrag);
-  fprintf(stdout,"Maximum distance: %e\n",rmax*UL);
-  fprintf(stdout,"Maximum velocity: %e\n",vmax*UL/UT/1E3);
+  
+  //SAVE FRAGMENT DATA
+  ffrag=fopen("fragments.dat","w");
+  fprintf(ffrag,"%-6s %-6s %-13s %-13s %-13s\n","#1:i","2:type","3:rhos","4:Ms","5:Rs");
+  for(i=0;i<nfrag;i++){
+    fprintf(ffrag,"%06d %6d %-13.5e %-13.5e %-13.5e\n",
+	    i,(int)type[i],rhos[i]*UM/(UL*UL*UL),Ms[i]*UM,Rs[i]*UL);
+  }
+  fclose(ffrag);
+
+  fprintf(stdout,"Maximum distance: %e km\n",rmax*UL/1E3);
+  fprintf(stdout,"Maximum velocity: %e m/s\n",vmax*UL/UT);
 
   #ifdef SAVE_TRAJECTORIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -525,11 +582,13 @@ int main(int argc,char *argv[])
   //INITIALIZE INTEGRATOR
   //////////////////////////////////////////
 
-  params=realAlloc(2*nfrag+2);
+  params=realAlloc(2*nfrag+2/*nsys&nlarge*/+2/*Rc&Mc*/);
   params[0]=nsys;
   params[1]=nlarge;
   memcpy(params+2,Rs,nfrag*sizeof(double));
   memcpy(params+2+nfrag,Ms,nfrag*sizeof(double));
+  params[2*nfrag+2]=Rc;
+  params[2*nfrag+3]=Mc;
 
   gsl_odeiv2_system sys={gravSystem,NULL,nsys,params};
   gsl_odeiv2_driver* driver=
@@ -564,8 +623,22 @@ int main(int argc,char *argv[])
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //REPORT
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    if((n%nscreen)==0)
+    if((n%nscreen)==0){
       fprintf(stdout,"\tStep %d/%d: t = (%e - %e) UL = (%e - %e) s = (%e - %e) days (nparticles = %d, nlarge = %d, ndebris = %d)\n",n,nsteps,t,t+dtout,t*UT,(t+dtout)*UT,t*UT/DAY,(t+dtout)*UT/DAY,NPARTICLES,NLARGE,NDEBRIS);
+      /*
+      gravSystem(t,y,dydt,params);
+      for(i=0;i<=nfrag;i++){
+	k=NSTATE*i;
+	xf=y+k;
+	fprintf(stdout,"\t\tState %d:",i);
+	fprintf_vec(stdout,"%-+17.11e ",y+k,NSTATE);
+	fprintf(stdout,"\t\tGradiente %d:",i);
+	fprintf_vec(stdout,"%-+17.11e ",dydt+k,NSTATE);
+      }
+      fprintf(stdout,"\t\tParameters:");
+      fprintf_vec(stdout,"%-+17.11e ",params,2*nfrag+2+2);
+      //*/
+    }
 
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //UPDATE MASSES
@@ -574,7 +647,12 @@ int main(int argc,char *argv[])
       k=NSTATE*(i+1);
       xf=y+k;
       Mp=params[2+nfrag+i];
-      if(Mp==0) xf[6]=0;
+      if(Mp==0){
+        #ifdef SHOW_COLISION
+	fprintf(stdout,"\t\t\tSetting particle %d mass to zero\n",i);
+	#endif
+	xf[6]=0;
+      }
     }
 
   report:

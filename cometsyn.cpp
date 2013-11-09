@@ -28,6 +28,7 @@
 #include <gsl/gsl_sf.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_odeiv2.h>
+#include <gsl/gsl_roots.h>
 
 #ifndef CLANG
 using namespace std;
@@ -224,7 +225,7 @@ char State[][10]={"XPOS","YPOS","ZPOS","XVEL","YVEL","ZVEL","MASS"};
 enum Axis {_AXIS_,XAXIS,YAXIS,ZAXIS};
 
 //TYPE OF FRAGMENT
-enum Fragment {_FRAGMENT_,LARGE,DEBRIS};
+enum Fragment {_FRAGMENT_,LARGE,BOULDER,DUST};
 
 //////////////////////////////////////////////////////////////////////////////////
 //INITIALIZE
@@ -1124,13 +1125,13 @@ void earthObservations(const char* spkid,double t,double y[],double x[])
   //*/
 }
 
-double radiusGenerate(double rmin,double rmax,double alpha)
+double radiusGenerate(double rmin,double rmax,double q)
 {
   double u,r,e,eo,lambda;
   do{
     u=randReal();
-    if(alpha>1){
-      lambda=alpha-1;
+    if(q>1){
+      lambda=q-1;
       e=-1/lambda*log(1-u);
     }else{
       eo=log10(rmax/rmin);
@@ -1141,3 +1142,70 @@ double radiusGenerate(double rmin,double rmax,double alpha)
   return r;
 }
        
+double radiusNumber(double Rmin,double Rmax,double no,double q)
+{
+  double N,alpha;
+  
+  alpha=-(q+1);
+  N=no/alpha*(1/pow(Rmin,alpha)-1/pow(Rmax,alpha));
+  
+  return N;
+}
+
+double radiusOveri(int i,double no,double q,double Rmax)
+{
+  double alpha=-(1+q);
+  double uR,R;
+  
+  uR=(i+1)*alpha/no+1/pow(Rmax,alpha);
+  R=pow(1/uR,1/alpha);
+
+  return R;
+}
+
+double massOverN(double no,void *params)
+{
+  double *ps=(double*)params;
+  
+  int N=(int)ps[0];
+  double q=ps[1];
+  double Rmin=ps[2];
+  double Rmax=ps[3];
+
+  int i;
+  double Ri,RN,EN,m=0;
+  double beta=-(3+q);
+
+  for(i=0;i<N;i++){
+    Ri=radiusOveri(i,no,q,Rmax);
+    m+=Ri*Ri*Ri;
+    //fprintf(stdout,"Fragment %d: Ri = %e, Mc = %e (cum. %e)\n",i,Ri,Ri*Ri*Ri,m);
+  }
+  RN=radiusOveri(N,no,q,Rmax);
+  EN=no/(1-beta)*(pow(RN,1-beta)-pow(Rmin,1-beta));
+  ps[4]=EN;
+  m+=EN;
+
+  return m-1;
+}
+
+void noFromfragments(int N,double q,double Rmin,double Rmax,double *no,double *mlarge)
+{
+  double nomin,nomax,deltam;
+  double pars[]={N,q,Rmin,Rmax,0};
+  gsl_root_fsolver *s=gsl_root_fsolver_alloc(gsl_root_fsolver_bisection);
+  gsl_function function={&massOverN,&pars};
+  gsl_root_fsolver_set(s,&function,0,10);
+ 
+  do{
+    gsl_root_fsolver_iterate(s);
+    gsl_root_fsolver_root(s);
+    nomin=gsl_root_fsolver_x_lower(s);
+    nomax=gsl_root_fsolver_x_upper(s);
+    *no=gsl_root_fsolver_root(s);
+    deltam=massOverN(*no,pars);
+    //fprintf(stdout,"nomin = %e, nomax = %e, deltam = %e\n",nomin,nomax,deltam);
+  }while(gsl_root_test_residual(deltam,1E-5)!=GSL_SUCCESS);
+  deltam=massOverN(*no,pars);
+  *mlarge=pars[4];
+}

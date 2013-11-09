@@ -82,14 +82,19 @@ int main(int argc,char *argv[])
   double ROA[3][3],IROA[3][3];
   double RHA[3][3],IRHA[3][3];
   double eE[NELEMS],normE[3];
+  double q,no,Rmin,Rmax;
+  double Rlarge_min,Rlarge_max,Rboulder_min,Rboulder_max,Rdust_min,Rdust_max;
+  double flarge,fboulder,fdust;
+  double Mlarge,Mboulder,Mdust,Mtot;
   double Rc,Prot,rho,Mc;
 
   int nfrag;
   int nlarge;
   int ndebris;
-  int nboulders;
+  int nbould;
+  int ndust;
 
-  double mp,Mp,Rp;
+  double mp,Mp,Rp,Rpmin,Rpmax;
   double dx[3];
   double* type;
   double* Ms;
@@ -97,7 +102,7 @@ int main(int argc,char *argv[])
   double* rhos;
   double** xs;
   double r,rp,phi,theta,v;
-  int ilarge;
+  int ilarge,iboulder,idust;
   bool qfrag;
   int nsys;
   double* y;
@@ -105,7 +110,7 @@ int main(int argc,char *argv[])
   double* dy;
   double* dydt;
   double* dirs=realAlloc(2*NSTATE);
-  double dth,Rmin;
+  double dth,Rdbmin;
   double ur[3],vr[3];
   double* xf;
   double* rcom=realAlloc(NSTATE);
@@ -192,8 +197,6 @@ int main(int argc,char *argv[])
 
   //DENSITY OF VOLATILES
   RHOVOLATILES=(1-FR)/(1/RHOCOMET-FR/RHODUST);
-  fprintf(stdout,"Density of volatiles: %e UM/UL^3 = %e kg/m^3\n",
-	  RHOVOLATILES,RHOVOLATILES*(UM/(UL*UL*UL)));
 
   //CORE TOTAL RADIUS 
   Rc=2 /*km*/ *1E3/UL;
@@ -204,31 +207,28 @@ int main(int argc,char *argv[])
   //PERIOD OF ROTATION
   Prot=3*HOURS /*secs*/ /UT;
 
-  //TYPE II NON GRAVITATIONAL PARAMETER
-  AR=1.5E-8*AU/(DAY*DAY) /*m/s^2*/ /(UL/(UT*UT)); /*73P-Fragment B*/
-  AT=AN=0.0;
-  /*
-    Ishiguro et al. (2006): 
-    Radius: Toth et al. (2003)
-    Density: Boenhdart et al. (2002)
-  */
-  AMREF=4*PI/3*680*680*680*0.6E3 /*kg*/ *(1/UM); 
-  fprintf(stdout,"AMREF = %e UM = %e kg\n",AMREF,AMREF*UM);
-  fprintf(stdout,"AR = %e UL/UT^2 = %e m/s^2 = %e AU/DAY^2\n",
-	  AR,AR*UL/(UT*UT),AR*UL/(UT*UT)/(AU/(DAY*DAY)));
+  //NUMBER OF LARGE FRAGMENTS
+  nlarge=10;
+  flarge=1E0;
 
-  //NUMBER OF FRAGMENTS AND DEBRIS 
-  nlarge=5; //Number of large particles
-  ndebris=10000; //Number of debris particles
-  nboulders=100; //Among debris how much are boulders (R > 1 m)
-  if(nboulders>ndebris){
-    fprintf(stderr,"Number of boulders (%d) is larger than that of debris (%d)\n",
-	    nboulders,ndebris);
-    exit(0);
-  }
+  //EXPONENT OF FRAGMENT DISTRIBUION
+  q=-3.5;
+
+  //RANGE OF DEBRIS AND FRAGMENT SIZES
+  Rmin=1E-6 /*m*//UL;
+  Rmax=Rc;
+
+  //MINIMUM SIZE OF BOULDERS
+  Rboulder_min=10 /*m*//UL;
+  fboulder=1E-1;
+
+  //NUMBER OF DUST TEST PARTICLES
+  ndust=10000;
+  Rdust_min=1E-6 /*m*//UL;
+  Rdust_max=1E-2 /*m*//UL;
 
   //THICK OF DEBRIS CRUST 
-  Rmin=1.0*fc*Rc; /* Minimum radius for debris origin */
+  Rdbmin=1.0*fc*Rc; /* Minimum radius for debris origin */
   dth=0.1; /* fc Rc */
 
   //HEALTHY CORE MASS
@@ -243,6 +243,11 @@ int main(int argc,char *argv[])
   //REPORT
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   fprintf(stdout,"Cometary properties:\n");
+  fprintf(stdout,"\tFraction of refractory: %e\n",FR);
+  fprintf(stdout,"\tDensity of rock and dust: %e UM/UL^3 = %e kg/m^3\n",
+	  RHODUST,RHODUST*(UM/(UL*UL*UL)));
+  fprintf(stdout,"\tDensity of volatiles: %e UM/UL^3 = %e kg/m^3\n",
+	  RHOVOLATILES,RHOVOLATILES*(UM/(UL*UL*UL)));
   fprintf(stdout,"\tAverage density comet: %e UM/UL^3 = %e kg/m^3\n",RHOCOMET,RHOCOMET*UM/(UL*UL*UL));
   fprintf(stdout,"\tRotation period: %e UT = %e h\n",Prot,Prot*UT/3600);
   fprintf(stdout,"\tCore radius: %e UL = %e km\n",Rc,Rc*UL/1E3);
@@ -250,6 +255,10 @@ int main(int argc,char *argv[])
   fprintf(stdout,"\tLarge fragments: %d\n",nlarge);
   fprintf(stdout,"\tAverage mass of fragments: %e UM = %e ton\n",mp,mp*UM/1E3);
   fprintf(stdout,"\tAverage radius of fragments: %e UL = %e km\n",Rp,Rp*UL/1E3);
+  fprintf(stdout,"\tMinimum radius of large fragments: %e UL = %e km\n",
+	  Rlarge_min,Rlarge_min*UL/1E3);
+  fprintf(stdout,"\tMaximum radius of large fragments: %e UL = %e km\n",
+	  Rlarge_max,Rlarge_max*UL/1E3);
   
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //DERIVED PHYSICAL PROPERTIES
@@ -290,6 +299,24 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //FRAGMENT PROPERTIES
   //////////////////////////////////////////
+  noFromfragments(nlarge,q,Rmin/Rc,Rmax/Rc,&no,&Mlarge);
+  Mlarge*=Mc;
+  Rpmax=radiusOveri(0,no,q,Rmax/Rc)*Rc;
+  Rpmin=radiusOveri(nlarge,no,q,Rmax/Rc)*Rc;
+  fprintf(stdout,"\tFragment distribution parameters: no = %e, q = %e\n",no,q);
+  fprintf(stdout,"\tMass in large fragments: %e UM = %e kg = %e Mc\n",Mlarge,Mlarge*UM,Mlarge/Mc);
+  fprintf(stdout,"\tLargest fragment: %e UL = %e m = %e Rc\n",
+	  Rpmax,Rpmax*UL,Rpmax/Rc);
+  fprintf(stdout,"\tSmallest fragment: %e UL = %e m = %e Rc\n",
+	  Rpmin,Rpmin*UL,Rpmin/Rc);
+
+  //NUMBER OF BOULDERS
+  Rboulder_max=Rpmin;
+  nbould=fboulder*radiusNumber(Rboulder_min/Rc,Rboulder_max/Rc,no,q); 
+
+  //NUMBER OF DEBRIS
+  ndebris=nbould+ndust;
+
   //COUNTING FRAGMENTS
   NPARTICLES=nfrag=nlarge+ndebris;
   NLARGE=nlarge;
@@ -303,17 +330,20 @@ int main(int argc,char *argv[])
   //Radii
   rhos=realAlloc(nfrag);
   //Type
-  type=realAlloc(nfrag);//Type of fragment: 1-large, 2-debris
+  type=realAlloc(nfrag);//Type of fragment: 1-large, 2-boulders, 3-dust
   //State
   xs=stateAlloc(nfrag);
 
   fprintf(stdout,"Fragments:\n");
   fprintf(stdout,"\tLarge Fragments: %d\n",nlarge);
-  fprintf(stdout,"\tDebris: %d\n",ndebris);
+  fprintf(stdout,"\tDebris (boulders): %d (real x %.1f)\n",nbould,1/fboulder);
+  fprintf(stdout,"\tDebris (dust): %d (real %e)\n",ndust,
+	  radiusNumber(Rdust_min/Rc,Rdust_max/Rc,no,q));
   fprintf(stdout,"\tTotal: %d\n",nfrag);
-  fprintf(stdout,"Fragment information stored at fragments.out\n");
 
   ffrag=fopen("fragments.out","w");
+  //ffrag=stdout;
+  fprintf(stdout,"Storing fragment information in fragments.out\n");
   fprintf(ffrag,"Fragments:\n");
   fprintf(ffrag,"\tNumber: %d\n",nfrag);
   fprintf(ffrag,"\tAverage mass of large fragments: %e\n",mp);
@@ -324,17 +354,20 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //CENTRAL FRAGMENT
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  Mlarge=Mboulder=Mdust=Mtot=0;
   i=0;
   type[i]=1;
-  Ms[i]=mp;
-  //SAVE MASS
+  Rs[i]=Rpmax;
+  Ms[i]=4*PI/3*Rs[i]*Rs[i]*Rs[i]*RHOCOMET;
+  //SAVE STATE
   memset(xs[i],0,NSTATE*sizeof(xs[0][0]));
   xs[i][6]=Ms[i];
-  Rs[i]=pow(Ms[i]/RHOCOMET/(4*PI/3),1./3);
-
+  Mlarge+=Ms[i];
+  Mtot+=Ms[i];
   fprintf(ffrag,"\tFragment %d:\n",i);
   fprintf(ffrag,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
-  fprintf(ffrag,"\t\tMass: %e UM = %e kg\n",Ms[i],Ms[i]*UM);
+  fprintf(ffrag,"\t\tMass: %e UM = %e kg = %e Mc\n",Ms[i],Ms[i]*UM,Ms[i]/Mc);
+  fprintf(ffrag,"\t\tCumulative mass: %e UM = %e kg = %e Mc\n",Mtot,Mtot*UM,Mtot/Mc);
   fprintf(ffrag,"\t\tRadius: %e UL = %e m = %e Rc\n",Rs[i],Rs[i]*UL,Rs[i]/Rc);
   fprintf(ffrag,"\t\tCartesian coordinates: ");
   fprintf_vec(ffrag,"%e ",xs[i],3);
@@ -344,7 +377,7 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //REST OF FRAGMENTS
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  ilarge=0;
+  ilarge=iboulder=idust=0;
   for(i=1;i<nfrag;i++){
     fprintf(ffrag,"\tFragment %d:\n",i);
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -352,20 +385,39 @@ int main(int argc,char *argv[])
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if(i<nlarge){
       type[i]=LARGE;
-      Ms[i]=mp;
-      Rs[i]=pow(Ms[i]/RHOCOMET/(4*PI/3),1./3);
+      Rs[i]=radiusOveri(i-1,no,q,Rpmax/Rc)*Rc;
+      rhos[i]=RHOCOMET;
+      Ms[i]=4*PI/3*Rs[i]*Rs[i]*Rs[i]*rhos[i];
+      Mlarge+=Ms[i];
       ilarge++;
     }
-    else{
-      type[i]=DEBRIS;
-      Rs[i]=radiusGenerate(rpmin,rpmax,alpha);
-      if(Rs[i]>RMIN_ROCKET/UL) rhom=RHOCOMET;
-      else rhom=RHODUST;
-      Ms[i]=4*PI/3*rhom*Rs[i]*Rs[i]*Rs[i];
+    else if(i<nlarge+nbould){
+      type[i]=BOULDER;
+      Rs[i]=radiusGenerate(Rboulder_min,Rboulder_max,q);
+      rhos[i]=RHOCOMET;
+      Ms[i]=4*PI/3*Rs[i]*Rs[i]*Rs[i]*rhos[i];
+      Mboulder+=Ms[i];
+      iboulder++;
+    }else{
+      type[i]=DUST;
+      Rs[i]=radiusGenerate(Rdust_min,Rdust_max,1);
+      rhos[i]=RHODUST;
+      Ms[i]=4*PI/3*Rs[i]*Rs[i]*Rs[i]*rhos[i];
+      Mdust+=Ms[i];
+      idust++;
     }
-    fprintf(ffrag,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
-    fprintf(ffrag,"\t\tMass: %e UM = %e kg\n",Ms[i],Ms[i]*UM);
+    Mtot+=Ms[i];
+
+    fprintf(ffrag,"\t\tType (1:large,2:boulders,3:dust): %d\n",(int)type[i]);
     fprintf(ffrag,"\t\tRadius: %e UL = %e m = %e Rc\n",Rs[i],Rs[i]*UL,Rs[i]/Rc);
+    fprintf(ffrag,"\t\tDensity: %e UM/UL^3 = %e kg/m^3\n",rhos[i],rhos[i]*UM/(UL*UL*UL));
+    fprintf(ffrag,"\t\tMass: %e UM = %e kg = %e Mc\n",Ms[i],Ms[i]*UM,Ms[i]/Mc);
+    fprintf(ffrag,"\t\tCumulative mass: %e UM = %e kg = %e Mc\n",Mtot,Mtot*UM,Mtot/Mc);
+
+    /*
+    if(i>=nlarge) exit(0);
+    continue;
+    */
 
     //SAVE MASS
     xs[i][6]=Ms[i];
@@ -384,10 +436,10 @@ int main(int argc,char *argv[])
 	//Inner core
 	r=fc*Rc*pow(randReal(),1./3);
       else{
-	//Outer thick
+	//Outer crust
 	do{
 	  r=(1+dth)*fc*Rc*pow(randReal(),1./3);
-	}while(r<Rmin);
+	}while(r<Rdbmin);
       }
       phi=2*M_PI*randReal();
       theta=acos(1-2*randReal());
@@ -409,7 +461,7 @@ int main(int argc,char *argv[])
 	else qfrag=false;
       }
       k++;
-    }while(qfrag);
+    }while(qfrag&&k<100);
 
     /***DEBUG***
     if(i==1){

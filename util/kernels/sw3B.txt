@@ -1,0 +1,71 @@
+IMPORTANT NOTICE:
+ 
+ This informal file release should not be used for purposes affecting the
+ safety and success of spacecraft hardware or missions without first contacting
+ Donald.K.Yeomans@jpl.nasa.gov (Supervisor, Solar System Dynamics Group,
+ 818-354-2127) or Jon.D.Giorgini@jpl.nasa.gov (SSDG analyst).
+ 
+ This is because an object's orbit solution may be insufficiently determined
+ over the chosen time-span to be suitable for some high-precision purposes,
+ due to the quantity of measurements available for an object, the time-span
+ they cover, and the object's dynamical path.
+ 
+ Although not stored in this file, statistical uncertainty of the trajectory
+ as a function of time may be available from the JPL Horizons system. This can
+ help interpret the accuracy of the trajectory.
+ 
+ Orbit solutions are updated in Horizons as new measurements are made, so this
+ trajectory may be superceded by more recent solutions. Check the orbit solution
+ number for an object (given below as "source") against the latest Horizons
+ entry to determine if an updated orbit solution is available.
+ 
+ This parameterized post-Netwonian numerically integrated perturbed trajectory
+ was produced by:
+ 
+    Horizons On-Line Ephemeris System
+    Solar System Dynamics Group
+    Jet Propulsion Laboratory
+    4800 Oak Grove Drive
+    Pasadena, CA  91109
+    USA
+ 
+ Horizons information & documentation:
+ 
+   http://ssd.jpl.nasa.gov/?horizons
+ 
+ Connection for small-body SPK generation (automation scripts available):
+ 
+   telnet ssd.jpl.nasa.gov 6775       (interactive UNIX/Linux command-line)
+   telnet://ssd.jpl.nasa.gov:6775     (interactive browser URL window)
+   http://ssd.jpl.nasa.gov/x/spk.html (passive browser form)
+ 
+ Inquiries:
+ 
+   Jon.D.Giorgini@jpl.nasa.gov (program author; 818-393-3107)
+ 
+SPK file contents:
+ 
+OBJECT #01
+==========
+Requested by    : zuluagajorge@gmail.com
+Execution date  : Mon Nov  4 21:59:12 2013 (Pasadena time)
+Target body     : 73P-B/Schwassmann-Wachmann 3    {source: Horizons_SPK:JPL#K061/24}
+Target SPK ID   :  1000320
+Coord center    : Sun                      ( 10)  {source: DE-0406LE-04}
+GM of center    : 2.9591220828559109E-04  au^3/d^2
+Small-body perts: Yes                             {source: SB406-CPV-2}
+Start time      : 2006-Jan-01 00:00:00.0000  CT
+Stop  time      : 2008-Jan-01 00:00:00.0000  CT
+*******************************************************************************
+Initial FK5/J2000.0 heliocentric ecliptic osculating elements (au, days, deg.):
+  EPOCH=  2453880.5 != 2006-May-25.0000000 (CT)   RMSW= n.a.
+   EC= .6932855208263886   QR= .939111036723919    TP= 2453894.4244273091
+   OM= 69.89247679701043   W= 198.7994525904428    IN= 11.39695194703386
+Comet physical (GM= km^3/s^2; RAD= km):
+   GM= n.a.                RAD= n.a.
+   M1=  15.2     M2=  n.a.     k1=  8.     k2= n.a.     PHCOF= n.a.
+Comet non-gravitational force model (AMRAT=m^2/kg;A1-A3=au/d^2;DT=days;R0=au):
+   AMRAT=  0.                                      DT=  0.
+   A1= 1.494319677353E-8   A2= 1.961498856544E-9   A3= 0.
+ Standard model:
+   ALN=  .1112620426   NK=  4.6142   NM=  2.15     NN=  5.093    R0=  2.808

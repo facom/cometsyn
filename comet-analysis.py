@@ -2,8 +2,8 @@
 COMET DESINTEGRATION
 ANALYSIS
 """
-from matplotlib import pyplot as plt,patches as pat,cm
-from mpl_toolkits.mplot3d import Axes3D
+#from matplotlib import pyplot as plt,patches as pat,cm
+#from mpl_toolkits.mplot3d import Axes3D
 from numpy import *
 from sys import *
 from os import system
@@ -79,7 +79,7 @@ for line in fdate:
     tphys,date=line.split("=")
     dates+=[date.strip()]
 fdate.close()
-
+#"""
 #//////////////////////////////////////////////////
 #OBSERVATIONS
 #//////////////////////////////////////////////////
@@ -670,9 +670,70 @@ def Orbit(iobs=1,fac=1e6,**args):
 
     system("gnuplot plot-orbit-fragments.gpl")
 
+#////////////////////////////////////////
+#MAXIMUM DISTANCE
+#////////////////////////////////////////
+def MaximumDistance(iobs=1):
+    """
+    Calculate maximum distance of large fragments to center of mass of debris zone
+    """
+    title("Maximum distance")
+    iobs=30
+
+    if iobs>ncom:
+        print "Maximum snapshot %d (t = %e)"%(ncom,ts[-1]+tini)
+        exit(1)
+    print "Plotting position of Debris Zone at Snapshot %d"%iobs
+    iobs-=1
+    
+    #TIME AND DATE
+    t=ts[iobs]
+    date=dates[iobs]
+    print "Time since integration start: t = %e days"%(t*365.25)
+    print "Date: %s"%date
+    print 
+    
+    #GET LARGE FRAGMENT POSITIONS
+    xs=xs_com[0:nlarge,iobs,:]
+
+    #GET LARGE FRAGMENT DISTANCES
+    ps=xs_obs[0:nlarge,iobs,:]
+
+    #GET LARGER DISTANCE
+    rmax=0
+    pmax=0
+    pavg=0
+    ravg=0
+    davg=0
+    for i in xrange(0,nlarge):
+        if xs[i,NSTATE-1]==0:continue
+        rp=NORM(xs[i,0:3])*UL/1E3
+        pp=NORM(ps[i,0:2])*UL/1E3
+        davg+=abs(ps[i,2])*UL/1E3
+        print "Distance of fragment %d in space: %e"%(i,rp)
+        print "Distance of fragment %d on image: %e"%(i,pp)
+        print
+        rmax=max(rmax,rp)
+        pmax=max(pmax,pp)
+        ravg+=rp
+        pavg+=pp
+    davg/=nlarge
+    ravg/=nlarge
+    pavg/=nlarge
+    dmax=(pavg/davg)/D2R*3600
+    
+    print "Average distance of large fragments: %e km"%davg
+    print "Average distance large fragments: %e km"%pavg
+    print "Maximum distance large fragments: %e km = %e arcsec"%(pmax,dmax)
+
+    pass
+
 #############################################################
 #SELECT TASK
 #############################################################
+#MaximumDistance(iobs=1)
+#exit(0)
+
 """
 Snapshot(iobs=1,facvel=1)
 Observation(iobs=1)

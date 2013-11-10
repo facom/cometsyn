@@ -863,7 +863,7 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
       //COLISION!
       if(D<(Rs[j-1]+Rs[i-1])){
 
-	fprintf(stdout,"Particle %d colision: %e < %e + %e\n",i,D,Rs[j-1],Rs[i-1]);
+	//fprintf(stdout,"Particle %d colision: %e < %e + %e\n",i,D,Rs[j-1],Rs[i-1]);
 
 	//ANNOUNCE IT
         #ifdef SHOW_COLISION
@@ -1127,11 +1127,12 @@ void earthObservations(const char* spkid,double t,double y[],double x[])
 
 double radiusGenerate(double rmin,double rmax,double q)
 {
-  double u,r,e,eo,lambda;
+  double u,r,e,eo,p,lambda;
+  p=-q;
   do{
     u=randReal();
-    if(q>1){
-      lambda=q-1;
+    if(p>1){
+      lambda=p-1;
       e=-1/lambda*log(1-u);
     }else{
       eo=log10(rmax/rmin);

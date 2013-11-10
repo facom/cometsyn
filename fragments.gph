@@ -1,6 +1,4 @@
-file='comet-fragments.dat'
-title='t = 13.85 yrs'
-facvel=1
-Rmax=2.000000e+03
-Rc=2.000000e+03
-rf=9.283178e+02
+file='comet-fragments-snapshots.dat'
+title='t = 14.500 days, d = 0.36 AU, D = 0.86 AU'
+Rmax=4.958506e+06
+facvel=0.000000e+00

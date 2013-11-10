@@ -20,8 +20,8 @@
 //**************************************************
 //BEHAVIOR
 //**************************************************
-#define COMET_PROPERTIES_ONLY
-#define SHOW_COLISION
+//#define COMET_PROPERTIES_ONLY
+//#define SHOW_COLISION
 
 //DRYING FUNCTION
 //#define DRYING_NULL
@@ -52,7 +52,7 @@
 //**************************************************
 //OUTPUT
 //**************************************************
-#define SAVE_TRAJECTORIES
+//#define SAVE_TRAJECTORIES
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -140,7 +140,6 @@ int main(int argc,char *argv[])
 
   cometsynInit(ul,um,ut,uG);
 
-
   //////////////////////////////////////////
   //INTEGRATION PARAMETERS
   //////////////////////////////////////////
@@ -208,7 +207,7 @@ int main(int argc,char *argv[])
   Prot=3*HOURS /*secs*/ /UT;
 
   //NUMBER OF LARGE FRAGMENTS
-  nlarge=10;
+  nlarge=2;
   flarge=1E0;
 
   //EXPONENT OF FRAGMENT DISTRIBUION
@@ -220,10 +219,10 @@ int main(int argc,char *argv[])
 
   //MINIMUM SIZE OF BOULDERS
   Rboulder_min=10 /*m*//UL;
-  fboulder=1E-1;
+  fboulder=1E-3;
 
   //NUMBER OF DUST TEST PARTICLES
-  ndust=10000;
+  ndust=0;
   Rdust_min=1E-6 /*m*//UL;
   Rdust_max=1E-2 /*m*//UL;
 
@@ -265,9 +264,11 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   vesc=sqrt(2*GPROG*FR*Mc/Rc);
   vtan=2*PI*Rc/Prot;
-  Pmin=sqrt(3*PI/(2*GPROG*FR*RHOCOMET));
+  double Omegamin=sqrt(4*PI*GPROG/3*RHODUST);
+  Pmin=2*PI/Omegamin;
 
   fprintf(stdout,"Cometary derived properties:\n");
+  fprintf(stdout,"\tMaximum rotation rate for breakup: %e 1/UT = %e rad/s\n",Omegamin,Omegamin/UT);
   fprintf(stdout,"\tMinimum rotation period for breakup: %e UT = %e h\n",Pmin,Pmin*UT/3600);
   fprintf(stdout,"\tComet escape velocity: %e UL/UT = %e km/s\n",vesc,vesc*UL/UT/1E3);
   fprintf(stdout,"\tTangential velocity: %e UL/UT = %e km/s\n",vtan,vtan*UL/UT/1E3);
@@ -313,6 +314,7 @@ int main(int argc,char *argv[])
   //NUMBER OF BOULDERS
   Rboulder_max=Rpmin;
   nbould=fboulder*radiusNumber(Rboulder_min/Rc,Rboulder_max/Rc,no,q); 
+  nbould=1;
 
   //NUMBER OF DEBRIS
   ndebris=nbould+ndust;
@@ -336,8 +338,8 @@ int main(int argc,char *argv[])
 
   fprintf(stdout,"Fragments:\n");
   fprintf(stdout,"\tLarge Fragments: %d\n",nlarge);
-  fprintf(stdout,"\tDebris (boulders): %d (real x %.1f)\n",nbould,1/fboulder);
-  fprintf(stdout,"\tDebris (dust): %d (real %e)\n",ndust,
+  fprintf(stdout,"\tDebris (boulders): %d (real / %.1f)\n",nbould,1/fboulder);
+  fprintf(stdout,"\tDebris (dust): %d (real = %e)\n",ndust,
 	  radiusNumber(Rdust_min/Rc,Rdust_max/Rc,no,q));
   fprintf(stdout,"\tTotal: %d\n",nfrag);
 
@@ -530,10 +532,11 @@ int main(int argc,char *argv[])
   
   //SAVE FRAGMENT DATA
   ffrag=fopen("fragments.dat","w");
-  fprintf(ffrag,"%-6s %-6s %-13s %-13s %-13s\n","#1:i","2:type","3:rhos","4:Ms","5:Rs");
+  fprintf(ffrag,"%-6s %-6s %-13s %-13s %-13s %-13s\n","#1:i","2:type","3:rhos","4:Ms","5:Rs","6-8:x");
   for(i=0;i<nfrag;i++){
-    fprintf(ffrag,"%06d %6d %-13.5e %-13.5e %-13.5e\n",
-	    i,(int)type[i],rhos[i]*UM/(UL*UL*UL),Ms[i]*UM,Rs[i]*UL);
+    fprintf(ffrag,"%06d %-6d %-13.5e %-13.5e %-13.5e %-+23.17e %-+23.17e %-+23.17e\n",
+	    i,(int)type[i],rhos[i]*UM/(UL*UL*UL),Ms[i]*UM,Rs[i]*UL,
+	    (xs[i][0]-xs[0][0])*UL/1E3,(xs[i][1]-xs[0][1])*UL/1E3,(xs[i][2]-xs[0][1])*UL/1E3);
   }
   fclose(ffrag);
 

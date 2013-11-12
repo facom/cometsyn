@@ -21,7 +21,6 @@
 //BEHAVIOR
 //**************************************************
 //#define COMET_PROPERTIES_ONLY
-//#define SHOW_COLISION
 
 //DRYING FUNCTION
 //#define DRYING_NULL
@@ -33,7 +32,7 @@
 //**************************************************
 #define SUN_FORCE /*FORCE FROM THE SUN*/
 #define FRAG_FORCE /*FORCE FROM LARGE FRAGMENTS*/
-//#define RADIATION_FORCE /*RADIATION FORCE*/
+#define RADIATION_FORCE /*RADIATION FORCE*/
 #define PR_CORRECTION /*POYINTING-ROBERTSON CORRECTION*/
 #define ROCKET_FORCE /*EVAPORATION RECOIL*/
 #define RMIN_ROCKET 1.0 /*m*/ /*MINIMUM SIZE FOR ROCKET FORCE*/
@@ -41,13 +40,7 @@
 //**************************************************
 //INITIAL CONDITIONS
 //**************************************************
-#define RANSEED 1
 //#define RADIALMODE /*DEBRIS HAVE A RADIAL VELOCITY*/
-
-//**************************************************
-//DYNAMICS
-//**************************************************
-#define ALLOW_COLISION /*ALLOW COLISION*/
 
 //**************************************************
 //OUTPUT
@@ -62,6 +55,12 @@
 #include <cometsyn.cpp>
 int main(int argc,char *argv[])
 {
+  if(argc==1){
+    int ans;
+    fprintf(stdout,"Are you sure you want to run again? ('y' to continue ctrl+c to cancel)");
+    fscanf(stdin,"%d",&ans);
+  }
+
   //////////////////////////////////////////
   //VARIABLES
   //////////////////////////////////////////
@@ -119,12 +118,12 @@ int main(int argc,char *argv[])
   bool lastreport=false;
   int status;
   double *params;
-  double rpmin,rpmax,alpha;
   int n;
   bool qfinal;
   char date[100];
   double AxisZ,AxisXY;
   double rhom;
+  double zsave;
 
   //SET AXIS
   memset(axis,0,NSTATE*sizeof(axis[0]));
@@ -147,9 +146,8 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //TIME
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  Tini_Date="11/08/2013 00:00:00.000 UTC";
+  Tini_Date="11/12/2013 00:00:00.000 UTC";
   Tend_Date="12/28/2013 00:00:00.000 UTC";
-  Tend_Date="11/28/2013 00:00:00.000 UTC";
 
   str2et_c(Tini_Date,&tini);
   str2et_c(Tend_Date,&tend);
@@ -172,19 +170,12 @@ int main(int argc,char *argv[])
   fprintf(stdout,"\tNumber of output points: %d\n",nsteps);
   fprintf(stdout,"\tFrequency of screen report: %d\n",nscreen);
 
-  //exit(0);
-  
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //COMETARY PHYSICAL PROPERTIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //ORIENTATION ROTATIONAL AXIS
   AxisZ=0.0*D2R;
   AxisXY=0.0*D2R;
-
-  //SIZE DISTRIBUTION OF DEBRIS
-  rpmin=100E-6 /*m*//UL;
-  rpmax=1.0E0 /*m*//UL;
-  alpha=2.0; /*P(r)~r^(-alpha)*/
 
   //DENSITY OF ROCKY FRAGMENTS
   RHODUST=2E3 /*kg/m^3*//(UM/(UL*UL*UL));
@@ -207,7 +198,7 @@ int main(int argc,char *argv[])
   Prot=3*HOURS /*secs*/ /UT;
 
   //NUMBER OF LARGE FRAGMENTS
-  nlarge=2;
+  nlarge=30;
   flarge=1E0;
 
   //EXPONENT OF FRAGMENT DISTRIBUION
@@ -222,9 +213,9 @@ int main(int argc,char *argv[])
   fboulder=1E-3;
 
   //NUMBER OF DUST TEST PARTICLES
-  ndust=0;
+  ndust=1000;
   Rdust_min=1E-6 /*m*//UL;
-  Rdust_max=1E-2 /*m*//UL;
+  Rdust_max=10.0 /*m*//UL;
 
   //THICK OF DEBRIS CRUST 
   Rdbmin=1.0*fc*Rc; /* Minimum radius for debris origin */
@@ -314,7 +305,6 @@ int main(int argc,char *argv[])
   //NUMBER OF BOULDERS
   Rboulder_max=Rpmin;
   nbould=fboulder*radiusNumber(Rboulder_min/Rc,Rboulder_max/Rc,no,q); 
-  nbould=1;
 
   //NUMBER OF DEBRIS
   ndebris=nbould+ndust;
@@ -782,9 +772,13 @@ int main(int argc,char *argv[])
     //SAVE GEOCENTRIC POSITIONS
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //OBSERVATIONS
+    earthObservations(COMETID,(t+tini)*UT,y,rcom);
     for(i=0;i<=nfrag;i++){
       k=NSTATE*i;
       earthObservations(COMETID,(t+tini)*UT,y+k,xobs+k);
+      zsave=xobs[k+2];
+      vsubg_c(xobs+k,rcom,NSTATE-1,xobs+k);
+      xobs[k+2]=zsave;
     }
     fprintf(fobs,"%-+23.17e ",t);
     fprintf_vec(fobs,"%-+23.17e ",xobs,nsys,false);
@@ -882,6 +876,9 @@ int main(int argc,char *argv[])
 	  "nfrag_end=%d\n"
 	  "nlarge_end=%d\n"
 	  "ndebris_end=%d\n"
+	  "rhoc=%e\n"
+	  "fr=%e\n"
+	  "q=%e\n"
 	  "tini=%e\n"
 	  "tint=%e\n"
 	  "UM=%e\n"
@@ -889,6 +886,7 @@ int main(int argc,char *argv[])
 	  "UT=%e\n",
 	  nfrag,nlarge,ndebris,
 	  NPARTICLES,NLARGE,NDEBRIS,
+	  RHOCOMET*UM/(UL*UL*UL),FR,q,
 	  tini,tint,
 	  UM,UL,UT);
   fclose(fpfrag);

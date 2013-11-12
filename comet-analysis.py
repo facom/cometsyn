@@ -2,8 +2,8 @@
 COMET DESINTEGRATION
 ANALYSIS
 """
-#from matplotlib import pyplot as plt,patches as pat,cm
-#from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import pyplot as plt,patches as pat,cm,image as img
+from mpl_toolkits.mplot3d import Axes3D
 from numpy import *
 from sys import *
 from os import system
@@ -16,10 +16,39 @@ NORM=linalg.norm
 D2R=pi/180
 DAY=86400
 DIAG=linalg.eig
+AU=1.496E8
 
 #############################################################
 #UTIL ROUTINES
 #############################################################
+def point(ax,x,y,zorder=10,**args):
+    ax.plot(x,y,linestyle='none',marker='o',color='w',alpha=0.3,
+            markersize=10,markeredgecolor='none',**args)
+    ax.plot(x,y,linestyle='none',marker='o',color='w',alpha=0.4,
+            markersize=6,zorder=zorder+1,markeredgecolor='none',**args)
+    ax.plot(x,y,linestyle='none',marker='o',color='w',alpha=0.6,
+            markersize=4,zorder=zorder+2,markeredgecolor='none',**args)
+    ax.plot(x,y,linestyle='none',marker='o',color='w',alpha=1,
+            markersize=2,zorder=zorder+3,markeredgecolor='none',**args)
+
+def comet(ax,x,y,zorder=10,**args):
+    ax.plot(1.02*x,y,linestyle='none',marker='o',color='w',alpha=0.3,
+            markersize=10,markeredgecolor='none',**args)
+    ax.plot(1.01*x,y,linestyle='none',marker='o',color='w',alpha=0.4,
+            markersize=6,zorder=zorder+1,markeredgecolor='none',**args)
+    ax.plot(1.009*x,y,linestyle='none',marker='o',color='w',alpha=0.6,
+            markersize=4,zorder=zorder+2,markeredgecolor='none',**args)
+    ax.plot(1.00*x,y,linestyle='none',marker='o',color='w',alpha=1,
+            markersize=2,zorder=zorder+3,markeredgecolor='none',**args)
+
+def map(x,xmax,n):
+    i=n*(x+xmax)/(2*xmax)
+    return i
+
+def angsize(r,d):
+    t=(r/d)/D2R*3600
+    return t
+
 def scinot(value,fmt="%.2f"):
     exponent=floor(log10(value))
     mantisa=value/10**exponent
@@ -66,6 +95,9 @@ nlarge_end=int(comconf['nlarge_end'])
 ndebris_end=int(comconf['ndebris_end'])
 tini=comconf['tini']
 tint=comconf['tint']
+rhoc=comconf['rhoc']
+fr=comconf['fr']
+q=comconf['q']
 UL=comconf['UL']
 UT=comconf['UT']
 UM=comconf['UM']
@@ -673,65 +705,315 @@ def Orbit(iobs=1,fac=1e6,**args):
 #////////////////////////////////////////
 #MAXIMUM DISTANCE
 #////////////////////////////////////////
-def MaximumDistance(iobs=1):
+def MaximumDistance(**args):
     """
     Calculate maximum distance of large fragments to center of mass of debris zone
     """
-    title("Maximum distance")
-    iobs=30
+    title("Maximum Distance")
 
-    if iobs>ncom:
-        print "Maximum snapshot %d (t = %e)"%(ncom,ts[-1]+tini)
-        exit(1)
-    print "Plotting position of Debris Zone at Snapshot %d"%iobs
-    iobs-=1
-    
-    #TIME AND DATE
-    t=ts[iobs]
-    date=dates[iobs]
-    print "Time since integration start: t = %e days"%(t*365.25)
-    print "Date: %s"%date
-    print 
-    
-    #GET LARGE FRAGMENT POSITIONS
-    xs=xs_com[0:nlarge,iobs,:]
+    fmax=open("maximum-distance.dat","w")
+    fmax.write("%7s %-24s %-12s %-12s %-12s %-12s %-12s %-12s\n"%(\
+            "#1:iobs","2:t",
+            "3:davg","4:ravg","5:pavg",
+            "6:dmax","7:rmax","8:pmax"))
+            
+    for iobs in xrange(0,ncom):    
+        #TIME AND DATE
+        t=ts[iobs]
+        date=dates[iobs]
+        print "Time since integration start: t = %e days"%(t*365.25)
+        print "Date: %s"%date
+        print 
+        
+        #GET LARGE FRAGMENT SPATIAL POSITIONS
+        xs=xs_com[0:nlarge,iobs,:]
+        
+        #GET LARGE FRAGMENT POSITION OVER PLANE OF SKY
+        ps=xs_obs[0:nlarge,iobs,:]
 
-    #GET LARGE FRAGMENT DISTANCES
-    ps=xs_obs[0:nlarge,iobs,:]
+        #GET LARGER DISTANCE
+        rmax=0
+        pmax=0
+        pavg=0
+        ravg=0
+        davg=0
+        for i in xrange(0,nlarge):
+            if xs[i,NSTATE-1]==0:continue
+            rp=NORM(xs[i,0:3])*UL/1E3
+            pp=NORM(ps[i,0:2])*UL/1E3
+            davg+=abs(ps[i,2])*UL/1E3
+            """
+            print "Distance of fragment %d in space: %e"%(i,rp)
+            print "Distance of fragment %d on image: %e"%(i,pp)
+            print
+            """
+            rmax=max(rmax,rp)
+            pmax=max(pmax,pp)
+            ravg+=rp
+            pavg+=pp
+        davg/=nlarge
+        ravg/=nlarge
+        pavg/=nlarge
+        dmax=(pavg/davg)/D2R*3600
+        
+        print "Average distance of large fragments: %e km"%davg
+        print "Average distance large fragments in image plane: %e km"%pavg
+        print "Average distance large fragments in space: %e km"%ravg
+        print "Maximum distance large fragments in space: %e km"%(rmax)
+        print "Maximum distance large fragments in image: %e km = %e arcsec"%(pmax,dmax)
+        
+        fmax.write("%-07d %-+24.17e %-+12.5e %-+12.5e %-+12.5e %-+12.5e %-+12.5e %-+12.5e\n"%(iobs,(t+tini),
+                                                                                              davg,ravg,pavg,
+                                                                                              rmax,pmax,dmax))
+    fmax.close()
 
-    #GET LARGER DISTANCE
-    rmax=0
-    pmax=0
-    pavg=0
-    ravg=0
-    davg=0
-    for i in xrange(0,nlarge):
-        if xs[i,NSTATE-1]==0:continue
-        rp=NORM(xs[i,0:3])*UL/1E3
-        pp=NORM(ps[i,0:2])*UL/1E3
-        davg+=abs(ps[i,2])*UL/1E3
-        print "Distance of fragment %d in space: %e"%(i,rp)
-        print "Distance of fragment %d on image: %e"%(i,pp)
-        print
-        rmax=max(rmax,rp)
-        pmax=max(pmax,pp)
-        ravg+=rp
-        pavg+=pp
-    davg/=nlarge
-    ravg/=nlarge
-    pavg/=nlarge
-    dmax=(pavg/davg)/D2R*3600
-    
-    print "Average distance of large fragments: %e km"%davg
-    print "Average distance large fragments: %e km"%pavg
-    print "Maximum distance large fragments: %e km = %e arcsec"%(pmax,dmax)
+#////////////////////////////////////////
+#DISTANCE DISTRIBUTION
+#////////////////////////////////////////
+def DistanceDistribution(**args):
+    """
+    Calculate distribution of distance for large boulders
+    """
+    title("Distance Distribution")
 
-    pass
+    #for iobs in xrange(50,ncom):    
+    miobs=[1,10,30]
+    for iobs in miobs:
+        #TIME AND DATE
+        t=ts[iobs]
+        date=dates[iobs]
+        print "Time since integration start: t = %e days"%(t*365.25)
+        print "Date time: t = %e yrs"%(t+tini)
+        print "Date: %s"%date
+        print 
+        
+        #GET DEBRIS POSITION OVER PLANE OF SKY
+        ps=xs_obs[nlarge:,iobs,:]
 
+        #FILTER ACCORDING TO RADII
+        Ms=ps[:,6]*UM
+        Rs=(Ms/(4*pi/3*rhoc))**(1./3)
+        bould=(Rs>1)*(Rs<100)
+        #bould=(Rs>30)
+        xb=ps[bould]
+        nbould=xb.shape[0]
+        print "Number of boulders: %d"%nbould
+        
+        #CALCULATE DISTANCE OVER SKY PLANE OF BOULDERS
+        davg=abs(xb[:,2]).mean()
+        rb=array([NORM(xb[i,0:2]) for i in xrange(0,nbould)])*UL/1E3
+        rb=rb/AU/D2R*3600
+
+        #CALCULATE HISTOGRAM
+        H,B=histogram(rb,bins=10,normed=False)
+        
+        fhis=open("boulder-distribution-%05d.dat"%iobs,"w")
+        F=0
+        for i in xrange(0,H.shape[0]):
+            F+=H[i]
+            fhis.write("%e %e\n"%(B[i],nbould-F))
+
+        print F
+        fhis.close()
+
+#////////////////////////////////////////
+#DISTANCE DISTRIBUTION
+#////////////////////////////////////////
+def DustDensityMap(**args):
+    """
+    Calculate the density of dust in the debris-zone
+    """
+    title("Dust density map")
+
+    miobs=[0]
+    for iobs in miobs:
+
+        #TIME AND DATE
+        t=ts[iobs]
+        date=dates[iobs]
+        print "Time since integration start: t = %e days"%(t*365.25)
+        print "Date time: t = %e yrs"%(t+tini)
+        print "Date: %s"%date
+        print 
+
+        figfile="animation/densitymap-snap_%05d.png"%iobs
+        fig=plt.figure(figsize=(8,8))
+        plt.close("all")
+        ax=fig.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
+
+        #DISTANCE OF DEBRIS ZONE CENTER
+        dist=abs(xcm_obs[iobs,2])
+        print "Distance of debris zone: %e AU"%(dist)
+        
+        #GET POSITION OF LARGE FRAGMENTS
+        xlarge=xs_obs[:nlarge,iobs,:]
+        surviving=(xlarge[:,6]>0)
+        xlarge=xlarge[surviving]
+        nl=xlarge.shape[0]
+        print "Surviving large fragments: %d"%nl
+
+        #GET POSITION OF DEBRIS
+        xdust=xs_obs[nlarge:,iobs,:]
+        surviving=(xdust[:,6]>0)
+        xdust=xdust[surviving]
+        nd=xdust.shape[0]
+        Ms=xdust[:,6]*UM
+        Rs=(Ms/(4*pi/3*rhoc))**(1./3)
+        print "Surviving dust particles: %d"%nd
+
+        #GET POSITION OF BOULDERS
+        bould=(Rs>1)*(Rs<100)
+        xbould=xdust[bould]
+        nb=xbould.shape[0]
+        print "Number of boulders: %d"%nb
+
+        #GET POSITION AND RADIUS OF PURE DUST
+        rhod=2E3
+        pdust=(Rs<10)
+        xpdust=xdust[pdust]
+        npd=xpdust.shape[0]
+        md=xpdust[:,6]*UM
+        rd=(md/(4*pi/3*rhod))**(1./3)
+        logrd=log10(rd)
+        print "Number of pure dust particles: %d"%npd
+
+        print 
+
+        #GET MAXIMUM FRAGMENT DISTANCE
+        rlarge=array([NORM(xlarge[i,0:2]) for i in xrange(0,nl)])
+        rmax=4*rlarge.max()
+        print "Maximum large fragment distance: %e km\n"%(rmax*UL/1E3)
+
+        #SCAN REGION
+        Ncell=20
+        dx=dy=2*rmax/Ncell
+        ND=zeros((Ncell+1,Ncell+1))
+        AD=zeros((Ncell+1,Ncell+1))
+        sbins=arange(-6,3,1)
+        nbins=sbins.shape[0]
+        weights=[]
+        for i in xrange(0,nbins-1):
+            R1=10**sbins[i]
+            R2=10**sbins[i+1]
+            weights+=[1/(3+q)*(R2**(3+q)-R1**(3+q))]
+        weights=array(weights)
+        #print sbins,weights
+        #exit(0)
+            
+        for i in xrange(0,Ncell+1):
+            xl=-rmax+i*dx
+            #print "i = %d, X = %e"%(i,xl)
+            for j in xrange(0,Ncell+1):
+                yl=-rmax+j*dx
+                #print "\tj = %d, Y = %e"%(j,yl)
+                inside=((xpdust[:,0]-xl)>0)*((xpdust[:,0]-xl)<dx)*((xpdust[:,1]-yl)>0)*((xpdust[:,1]-yl)<dy)
+                ms=xpdust[inside,6]
+                logrds=logrd[inside]
+                try:
+                    ND[i,j]+=ms.shape[0]
+                    h,b=histogram(logrds,sbins)
+                    AD[i,j]=(h*weights).sum()
+                    #print AD[i,j]
+                except:
+                    pass
+
+        AD/=AD.sum()
+        """
+        for i in xrange(0,Ncell+1):
+            xl=-rmax+i*dx
+            print "i = %d, X = %e"%(i,xl*UL/1E3)
+            for j in xrange(0,Ncell+1):
+                yl=-rmax+j*dy
+                print "\tj = %d, Y = %e"%(j,yl*UL/1E3),
+                print "%e"%AD[i,j]
+        """
+
+        AD=AD.transpose()
+        imgplot=ax.imshow(AD,interpolation='bicubic',origin='lower',cmap=cm.gray)
+        #imgplot=ax.imshow(AD,interpolation='nearest',origin='lower')
+        #fig.colorbar(imgplot)
+        ninside=ND.sum()
+        print "Fraction of dust particles inside region: %e"%(ninside/npd) 
+        
+        comet(ax,
+              map(xlarge[:,0],rmax,Ncell),
+              map(xlarge[:,1],rmax,Ncell),
+              zorder=10)
+        """
+        ax.plot(map(xlarge[:,0],rmax,Ncell),
+                map(xlarge[:,1],rmax,Ncell),
+                'ow',zorder=10,markersize=3,markeredgecolor='none')
+        """
+
+        ax.plot(map(xbould[:,0],rmax,Ncell),
+                map(xbould[:,1],rmax,Ncell),
+                'o',color='w',zorder=10,markersize=1,markeredgecolor='none')
+
+        comet(ax,
+              map(rmax/2,rmax,Ncell),
+              map(rmax/2,rmax,Ncell),
+              zorder=10)
+
+        #**************************************************
+        #AXIS
+        #**************************************************
+        zdir=zaxis[iobs,0:3]
+        zdir=5*rmax*zdir
+        ax.plot(map([0.0,zdir[0]],rmax,Ncell),
+                map([0.0,zdir[1]],rmax,Ncell),
+                'w-',linewidth=2,linestyle='-')
+        ax.text(map(zdir[0],rmax,Ncell),
+                map(zdir[1],rmax,Ncell),
+                "A",color='w',fontsize=10,
+                bbox=dict(boxstyle='square,pad=0.5',fc="0.0",ec="none"))
+        
+        zsun=dsun[iobs,0:3]
+        zsun=5*rmax*zsun
+        ax.plot(map([0.0,zsun[0]],rmax,Ncell),
+                map([0.0,zsun[1]],rmax,Ncell),
+                'w-',linewidth=2,linestyle='-')
+        ax.text(map(zsun[0],rmax,Ncell),
+                map(zsun[1],rmax,Ncell),
+                "S",color='w',fontsize=10,
+                bbox=dict(boxstyle='square,pad=0.5',fc="0.0",ec="none"))
+
+
+        #**************************************************
+        #DECORATION
+        #**************************************************
+        ax.set_xlim(-0.5,Ncell+0.5)
+        ax.set_ylim(-0.5,Ncell+0.5)
+
+        ax.set_xticks(concatenate((linspace(0,Ncell/2,5),linspace(Ncell/2,Ncell,5))))
+        ax.set_yticks(concatenate((linspace(0,Ncell/2,5),linspace(Ncell/2,Ncell,5))))
+        
+        xt=ax.get_xticks()
+        xl=[]
+        for x in xt:
+            xp=-rmax+x*dx
+            xl+=["%.1f"%(xp*UL/1E3)]
+        ax.set_xticklabels(xl)
+        ax.set_yticklabels(xl)
+
+        ax.axhline(map(0,rmax,Ncell),color='w',linewidth=0.5,linestyle='--')
+        ax.axvline(map(0,rmax,Ncell),color='w',linewidth=0.5,linestyle='--')
+        #**************************************************
+        #SAVE FIG
+        #**************************************************
+        fig.savefig(figfile);
+        
+
+        
 #############################################################
 #SELECT TASK
 #############################################################
-#MaximumDistance(iobs=1)
+DustDensityMap()
+exit(0)
+
+#DistanceDistribution()
+#exit(0)
+
+#MaximumDistance()
 #exit(0)
 
 """

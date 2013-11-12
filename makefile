@@ -33,3 +33,6 @@ compile:
 
 run:
 	./comet-simulation.out
+
+force:
+	./comet-simulation.out yes

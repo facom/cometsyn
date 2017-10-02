@@ -1,12 +1,7 @@
+include compiler.in
+
 BRANCH=$(shell bash .getbranch)
-
-CC=g++
-OPTIM=-O4
 UTIL=util
-
-ARCH=32
-#ARCH=64
-CPP=g++
 CFLAGS=$(OPTIM) -c -I. -w -I$(UTIL)/include $(OPTIONS)
 LFLAGS=-lm $(UTIL)/lib/$(ARCH)/cspice.a $(UTIL)/lib/$(ARCH)/csupport.a $(UTIL)/lib/$(ARCH)/libgsl.a $(UTIL)/lib/$(ARCH)/libgslcblas.a
 

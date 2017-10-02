@@ -1,0 +1,4 @@
+ARCH=32
+#ARCH=64
+CC=g++
+OPTIM=-O4

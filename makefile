@@ -49,3 +49,6 @@ pull:
 	@git reset --hard HEAD	
 	@git pull origin $(BRANCH)
 
+show:
+	@echo "Branch: $(BRANCH)"
+

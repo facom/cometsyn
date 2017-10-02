@@ -71,7 +71,7 @@ Package structure
 * cometsyn.cpp: main routines.
 
 * disintegrate.cpp: Simulate the disintegration of a comet.  
-  Input:
+  Input: 
 
 * simulate.cpp: comet simulation routine.
 

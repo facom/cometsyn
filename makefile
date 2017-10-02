@@ -14,14 +14,14 @@ plot-orbit.gpl plot-orbit-fragments.gpl plot-trajectories.gpl plot-fragments.gpl
 %.out:%.o
 	$(CC) $^ $(LFLAGS) -o $@
 
-%.o:%.cpp cometsyn.cpp config.hpp
+%.o:%.cpp cometsyn.cpp fragments.hpp
 	$(CC) $(CFLAGS) $< -o $@
 
 cleanout:
 	rm -rf *.out *.o *.exe
 
 clean:cleanout
-	rm -rf *.log *~ *.png *.dat *.pos *.cfg \#*\#
+	rm -rf *.log *~ *.png *.dat *.pos *.cfg *.txt \#*\#
 	find . -name *~ -exec rm -rf {} \;
 	rm -rf animation/*.png
 

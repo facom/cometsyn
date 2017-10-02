@@ -477,9 +477,9 @@ void stateObject(const char* spkid,double t,double x[])
   setunitsState(x);
 }
 
-void orbitDirector(const char* spkid,double t,double r[],double d[],double n[])
+void orbitDirector(const char* spkid,double t,double x1[],double r[],double d[],double n[])
 {
-  double x1[NSTATE],x2[NSTATE],elements[NELEMS],P;
+  double x2[NSTATE],elements[NELEMS],P;
 
   stateObject(spkid,t,x1);
   oscelt_c(x1,t,GPROG*MSUN/UM,elements);
@@ -507,6 +507,14 @@ double* realAlloc(int n)
 {
   double* v;
   v=(double*)calloc(n,sizeof(double));
+  return v;
+}
+
+
+int* intAlloc(int n)
+{
+  int* v;
+  v=(int*)calloc(n,sizeof(int));
   return v;
 }
 
@@ -1253,4 +1261,16 @@ void noFromfragments(int N,double q,double Rmin,double Rmax,double *no,double *m
   }while(gsl_root_test_residual(deltam,1E-5)!=GSL_SUCCESS);
   deltam=massOverN(*no,pars);
   *mlarge=pars[4];
+}
+
+int numLines(char *filename)
+{
+  FILE* f=fopen(filename,"r");
+  char linea[MAXSTR];
+  int i=0;
+  while(fgets(linea,sizeof linea,f)!=NULL){
+    if(strstr(linea,"#")==NULL) i++;
+  }
+  fclose(f);
+  return i;
 }

@@ -16,7 +16,7 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //INITIALIZATION AND CONFIGURATION
   //////////////////////////////////////////
-  #include<config.hpp>
+  #include<fragments.hpp>
 
   //////////////////////////////////////////
   //PHYSICAL PROPERTIES
@@ -44,17 +44,6 @@ int main(int argc,char *argv[])
   fprintf(stdout,"\tMinimum rotation period for breakup: %e UT = %e h\n",Pmin,Pmin*UT/3600);
   fprintf(stdout,"\tComet escape velocity: %e UL/UT = %e km/s\n",vesc,vesc*UL/UT/1E3);
   fprintf(stdout,"\tTangential velocity: %e UL/UT = %e km/s\n",vtan,vtan*UL/UT/1E3);
-
-  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  //COMET ROTATION MATRICES
-  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  fprintf(stdout,"Orientation parameters:\n");
-  fprintf(stdout,"\tradC = %s\n",sprintf_vec("%.2e",radC,3,false,0,false));
-  fprintf(stdout,"\ttangC = %s\n",sprintf_vec("%.2e",tangC,3,false,0,false));
-  fprintf(stdout,"\tnormC = %s\n",sprintf_vec("%.2e",normC,3,false,0,false));
-  fprintf(stdout,"\tRotation Helio->Orbit = \n%s",sprintf_mat("%+5.2e",RHO,"\t\t"));
-  fprintf(stdout,"\tRotation Orbit->Axis = \n%s",sprintf_mat("%+5.2e",ROA,"\t\t"));
-  fprintf(stdout,"\tRotation Helio->Axis = \n%s",sprintf_mat("%+5.2e",RHA,"\t\t"));
 
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //FRAGMENTS GLOBAL PROPERTIES
@@ -116,7 +105,6 @@ int main(int argc,char *argv[])
   double* rhos=realAlloc(nfrag);
   double* type=realAlloc(nfrag);//Type of fragment: 1-large, 2-boulders, 3-dust
   double** xs=stateAlloc(nfrag);
-  FILE* ffrag=fopen("fragments.out","w");
   
   //==============================
   //CENTRAL FRAGMENT
@@ -128,6 +116,7 @@ int main(int argc,char *argv[])
   int i=0;
   type[i]=1;
   Rs[i]=Rpmax;
+  rhos[i]=RHOCOMET;
   Ms[i]=4*PI/3*Rs[i]*Rs[i]*Rs[i]*RHOCOMET;
 
   //SAVE STATE
@@ -138,6 +127,7 @@ int main(int argc,char *argv[])
   Afrag=4*PI*Rs[i]*Rs[i]*UL*UL;
   Atot+=Afrag;
 
+  FILE* ffrag=fopen("fragments.txt","w");
   fprintf(ffrag,"\tFragment %d:\n",i);
   fprintf(ffrag,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
   fprintf(ffrag,"\t\tMass: %e UM = %e kg = %e Mc\n",Ms[i],Ms[i]*UM,Ms[i]/Mc);

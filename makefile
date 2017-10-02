@@ -21,7 +21,7 @@ cleanout:
 	rm -rf *.out *.o *.exe
 
 clean:cleanout
-	rm -rf *.log *~ *.png *.dat \#*\#
+	rm -rf *.log *~ *.png *.dat *.pos *.cfg \#*\#
 	find . -name *~ -exec rm -rf {} \;
 	rm -rf animation/*.png
 

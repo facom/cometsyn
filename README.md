@@ -22,7 +22,7 @@ Getting a copy
 To get a copy of the newest version of this project just execute:
 
 ```
-$ git clone --branch BHMcalc2 http://github.com/facom/BHMcalc.git
+$ git clone --branch CometSyn2 --single-branch http://github.com/facom/cometsyn.git
 ```
 
 For the oldest version just remove the `--branch` option.
@@ -50,13 +50,13 @@ Instructions for the contirbutor
 4. Get an authorized clone of the project:
 
    ```
-   $ git clone git@github.com:facom/BHMcalc.git
+   $ git clone git@github.com:facom/cometsyn.git
    ```
 
-5. Checkout the branch you are interested in (e.g. BHMcalc2):
+5. Checkout the branch you are interested in (e.g. CometSyn2):
 
    ```
-   $ git checkout -b BHMcalc2 origin/BHMcalc2
+   $ git checkout -b CometSyn2 origin/cometsyn
    ```
 
 6. Checkout back into the master:

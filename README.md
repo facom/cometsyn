@@ -70,8 +70,42 @@ Package structure
 
 * cometsyn.cpp: main routines.
 
+* disintegrate.cpp: Simulate the disintegration of a comet.  
+  Input:
+
 * simulate.cpp: comet simulation routine.
+
+Global variables
+----------------
+
+* UL,UM,UT,GPROG: Program Units
+
+* RHODUST: Density of dust
+
+* RHOCOMET: Density of comet
+
+* FR: Fraction of comet mass in rock+dust
+
+* RHOVOLATILES: Density of volatiles (computed from RHOCOMET, FR and
+  RHODUST
+
+* NPARTICLES, NLARGE, NDEBRIS: Number of particles, number of large
+  particles, number of debris.
+
+Commonly used routines
+----------------------
+
+* cometSynInit(ul,um,ut,uG): Initialize cometsyn.  Set random state,
+  read spice kernels, set unit system. If one of the units is set to
+  0, it is computed from the rest.
+
+Orbital elements
+----------------
+
+enum ElementsEnum {RP,ECC,INC,LNODE,ARGP,M0,T0,MU,
+		   TPER,PER,AXISZ,AXISXY,EMASS,ENDELEM};
 
 
 Running a simulation
 --------------------
+

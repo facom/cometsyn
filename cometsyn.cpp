@@ -335,6 +335,38 @@ void fprintf_vec(FILE* stream,const char* fmt,const double x[],int end,bool qlab
     fprintf(stream,"\n");
 }
 
+char *sprintf_vec(const char* fmt,const double x[],int end=3,bool qlabel=true,int ini=0,bool endline=true)
+{
+  char *out=(char*)malloc(MAXSTR*sizeof(char));
+  char *form=(char*)malloc(MAXSTR*sizeof(char));
+  strcpy(out,"");
+  for(int i=ini;i<end;i++){
+    if(qlabel) sprintf(out,"%s%d:",out,i);
+    else sprintf(out,"%s ",out);
+    sprintf(form,"%s%s","%s",fmt);
+    sprintf(out,form,out,x[i]);
+  }
+  if(endline)
+    sprintf(out,"%s\n",out);
+  return out;
+}
+
+char *sprintf_mat(const char* fmt,const double x[][3],char *pre="")
+{
+  char *out=(char*)malloc(MAXSTR*sizeof(char));
+  char *form=(char*)malloc(MAXSTR*sizeof(char));
+  strcpy(out,"");
+  for(int i=0;i<3;i++){
+    sprintf(out,"%s%s|",out,pre);
+    for(int j=0;j<3;j++){
+      sprintf(form,"%s%s ","%s",fmt);
+      sprintf(out,form,out,x[i][j]);
+    }
+    sprintf(out,"%s|\n",out);
+  }
+  return out;
+}
+
 void fprintf_mat(FILE* stream,const char* fmt,const double x[][3])
 {
   for(int i=0;i<3;i++){

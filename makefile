@@ -14,7 +14,7 @@ plot-orbit.gpl plot-orbit-fragments.gpl plot-trajectories.gpl plot-fragments.gpl
 %.out:%.o
 	$(CC) $^ $(LFLAGS) -o $@
 
-%.o:%.cpp cometsyn.cpp
+%.o:%.cpp cometsyn.cpp config.hpp
 	$(CC) $(CFLAGS) $< -o $@
 
 cleanout:

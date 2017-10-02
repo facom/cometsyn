@@ -1,11 +1,15 @@
 BRANCH=$(shell bash .getbranch)
+
 CC=g++
 OPTIM=-O4
 UTIL=util
-CFLAGS=$(OPTIM) -c -I. -I$(UTIL)/include $(OPTIONS)
-CSPICE_LIBS=$(UTIL)/lib/cspice.a $(UTIL)/lib/csupport.a
-GSL_LIB=$(UTIL)/lib/libgsl.a $(UTIL)/lib/libgslcblas.a 
-LFLAGS=-lm $(CSPICE_LIBS) $(GSL_LIB)
+
+ARCH=32
+#ARCH=64
+CPP=g++
+CFLAGS=$(OPTIM) -c -I. -w -I$(UTIL)/include $(OPTIONS)
+LFLAGS=-lm $(UTIL)/lib/$(ARCH)/cspice.a $(UTIL)/lib/$(ARCH)/csupport.a $(UTIL)/lib/$(ARCH)/libgsl.a $(UTIL)/lib/$(ARCH)/libgslcblas.a
+
 PROJECT_FILES=\
 makefile README.md TODO \
 cometsyn.cpp comet-simulation.cpp \
@@ -48,4 +52,7 @@ pull:
 	@echo "Pulling from repository..."
 	@git reset --hard HEAD	
 	@git pull origin $(BRANCH)
+
+show:
+	@echo "Branch: $(BRANCH)"
 

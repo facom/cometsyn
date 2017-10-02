@@ -285,6 +285,7 @@ char* kernelLocation(const char* kernel)
 {
   char *kerneloc;
   kerneloc=(char*)malloc(MAXSTR*sizeof(char));
+  strcpy(kerneloc,"");
   if(HOME==NULL)
     HOME=getenv("PWD");
   strcat(kerneloc,ABSKERNEL);

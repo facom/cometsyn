@@ -39,6 +39,7 @@ using namespace std;
 //////////////////////////////////////////////////////////////////////////////////
 #define ALLOW_COLISION /*ALLOW COLISION*/
 //#define SHOW_COLISION
+//#define TIMESEED
 #define RANSEED 1
 
 
@@ -797,9 +798,11 @@ int gravSystem(double t,const double y[],double dydt[],void* params)
     if(i>0) Mf=Ms[i-1];
     else Mf=ps[2*nfrag+3];
     
-    if(Mp<=FR*Mf){
+    if(Mp<=FR*Mf && FR<1){
+      /*
       fprintf(stdout,"\t\tPARTICLE %d HAS DRY OUT (Mp = %e < Mr = %e [=%e x %e])\n",
 	      i,Mp,FR*Mf,FR,Mf);
+      */
       Ms[i-1]=FR*Mf;
     }
     if(Rp>RMIN_ROCKET/UL /*Minimum size of evaporable rubble*/ 

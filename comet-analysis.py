@@ -825,7 +825,7 @@ def DustDensityMap(**args):
     """
     title("Dust density map")
 
-    miobs=[0]
+    miobs=[16]
     for iobs in miobs:
 
         #TIME AND DATE

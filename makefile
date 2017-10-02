@@ -1,3 +1,4 @@
+BRANCH=$(shell bash .getbranch)
 CC=g++
 OPTIM=-O4
 UTIL=util
@@ -36,3 +37,15 @@ run:
 
 force:
 	./comet-simulation.out yes
+
+commit:
+	@echo "Commiting changes..."
+	@touch .htaccess
+	@-git commit -am "Commit"
+	@git push origin $(BRANCH)
+
+pull:
+	@echo "Pulling from repository..."
+	@git reset --hard HEAD	
+	@git pull origin $(BRANCH)
+

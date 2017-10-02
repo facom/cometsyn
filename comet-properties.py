@@ -13,6 +13,18 @@ NORM=linalg.norm
 NSTATE=7
 D2R=pi/180
 
+BASEDIR="./"
+try:
+    seek=argv[1]
+    if 'BASEDIR' in seek:
+        parts=seek.split("=")
+        BASEDIR=parts[1]
+        del argv[1]
+except:
+    pass
+
+BASEDIR+="/"
+
 #############################################################
 #UTIL ROUTINES
 #############################################################
@@ -30,7 +42,7 @@ def angsize(r,d):
 #CONFIGURATION
 #//////////////////////////////////////////////////
 comconf=dict()
-execfile("analysis.cfg",comconf);
+execfile(BASEDIR+"analysis.cfg",comconf);
 nfrag=int(comconf['nfrag'])
 nlarge=int(comconf['nlarge'])
 ndebris=int(comconf['ndebris'])
@@ -51,7 +63,7 @@ AU=1.496E8 #km
 #//////////////////////////////////////////////////
 #DATES
 #//////////////////////////////////////////////////
-fdate=open("dates.dat","r")
+fdate=open(BASEDIR+"dates.dat","r")
 dates=[]
 for line in fdate:
     tphys,date=line.split("=")
@@ -62,7 +74,7 @@ fdate.close()
 #OBSERVATIONS
 #//////////////////////////////////////////////////
 try:
-    obsdata=loadtxt("comet-observations.dat");
+    obsdata=loadtxt(BASEDIR+"comet-observations.dat");
 except:
     print "No data available."
     exit(1)
@@ -82,7 +94,7 @@ xs_obs=array(xs_obs)
 #//////////////////////////////////////////////////
 #ORBIT
 #//////////////////////////////////////////////////
-orbdata=loadtxt("comet-orbit.dat");
+orbdata=loadtxt(BASEDIR+"comet-orbit.dat");
 norb=orbdata.shape[0]
 ts=orbdata[:,0]
 xcm_orb=orbdata[:,1:1+NSTATE]
@@ -96,7 +108,7 @@ xs_orb=array(xs_orb)
 #//////////////////////////////////////////////////
 #COMET
 #//////////////////////////////////////////////////
-comdata=loadtxt("comet-comet.dat");
+comdata=loadtxt(BASEDIR+"comet-comet.dat");
 ncom=comdata.shape[0]
 ts=comdata[:,0]
 sun_com=comdata[:,1:4]
@@ -112,13 +124,13 @@ xs_com=array(xs_com)
 #//////////////////////////////////////////////////
 #EARTH DATA
 #//////////////////////////////////////////////////
-earthdata=loadtxt("comet-earth.dat")
+earthdata=loadtxt(BASEDIR+"comet-earth.dat")
 xearth=earthdata[:,1:NSTATE+1]
 
 #//////////////////////////////////////////////////
 #DIRECTIONS
 #//////////////////////////////////////////////////
-dirdata=loadtxt("comet-dirs.dat")
+dirdata=loadtxt(BASEDIR+"comet-dirs.dat")
 zaxis=dirdata[:,1:NSTATE+1]
 dsun=dirdata[:,NSTATE+1:]
 
@@ -234,11 +246,15 @@ def radialDistribution(rdust,Rd,Rmin=1E-3,Rmax=2E3,nbin=20,q=0.2,
     #//////////////////////////////////////////////////
     Acint=INTERP(rd,Ac)
     cross=lambda r:Acint(r)-q
-    rq=BISECT(cross,rd[0],rd[-1])
+    try:
+        rq=BISECT(cross,rd[0],rd[-1])
+    except:
+        print "Putting the maximum"
+        rq=rd[-1]
 
     return rd,Ac,rq
 
-def AreaDistribution(iobs=1,**args):
+def AreaDistribution(iobs=0,**args):
     """
     Calculate the distribution of area as a function of angular
     distance to debris zone center
@@ -378,7 +394,7 @@ def AreaDistribution(iobs=1,**args):
     print "Saving %s..."%figfile
     fig.savefig(figfile);
 
-def ExpansionEvolution(did='0000',imax=ncom,**args):
+def ExpansionEvolution(did=0,imax=ncom,**args):
     """
     Calculate the distribution of area as a function of angular
     distance to debris zone center
@@ -388,11 +404,14 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
     #PREPARE FIGURE
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dateini="_".join(dates[0].split()[0:3])
-    figfile="animation/expansion-%s.png"%dateini
-    print "Creating: %s"%figfile
-    fig=plt.figure(figsize=(8,8))
+    figfile1="animation/expansion-%s-%05d.png"%(dateini,did)
+    figfile2="animation/expansion_physical-%s-%05d.png"%(dateini,did)
+    print "Creating: %s (physical %s)"%(figfile1,figfile2)
     plt.close("all")
-    ax=fig.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
+    fig1=plt.figure(figsize=(8,8))
+    fig2=plt.figure(figsize=(8,8))
+    ax=fig1.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
+    axp=fig2.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
     
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #TIME AND DATE
@@ -415,8 +434,11 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
 
     dmaxs=[]
     dqs=[]
+    rqs=[]
     dqbs=[]
     tes=[]
+    inglow=0
+    outglow=0
     for iobs in xrange(0,imax):
         t=ts[iobs]
         tes+=[t+tini]
@@ -425,6 +447,15 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
 
         dist=abs(xcm_obs[iobs,2])
         rdist=NORM(xcm_orb[iobs,0:3])
+
+        #ANGULAR DISTANCE SUN AND COMET
+        recom=xcm_orb[iobs,0:3]-xearth[iobs,0:3]
+        rsun=-xearth[iobs,0:3]
+        angdist=arccos(dot(recom,rsun)/(NORM(recom)*NORM(rsun)))/D2R
+        if angdist<20 and inglow==0:
+            inglow=t+tini
+        if angdist<20 and inglow>0:
+            outglow=t+tini
     
         xlarge=xs_obs[:nlarge,iobs,:]
         surviving=(xlarge[:,6]>0)
@@ -455,10 +486,34 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
         Md=xdust[:,6]*UM
         Rd=(Md/(4*pi/3*rhoc))**(1./3)
 
+        #DUST STATISTICS (OBSERVED)
         rd,Ac,rq=radialDistribution(rdust,Rd,nbin=50,q=0.1,Rmin=1E-3,Rmax=10)
         dq=angsize(rq,dist)
         dqs+=[dq]
+
+        #PHYSICAL DISTANCE
+        xdust=xs_orb[nlarge:,iobs,:]
+        surviving=(xdust[:,6]>0)
+        xdust=xdust[surviving]
+        nd=xdust.shape[0]
+        rcm=xcm_orb[iobs,0:3]
+        rdust=array([NORM(xdust[i,0:3]-rcm) for i in xrange(0,nd)])
+        rdust*=UL/1E3
+        rdmax=rdust.max()
+        print "Maximum distance of dust particle: %e"%rdmax
+        irdmax=rdust.argmax()
+        Rdmax=(xdust[irdmax,6]*UM/(4*pi/3*rhoc))**(1./3)
+        print "Size of further away dust particle: %e"%Rdmax
+
+        Md=xdust[:,6]*UM
+        Rd=(Md/(4*pi/3*rhoc))**(1./3)
+        rd,Ac,rq=radialDistribution(rdust,Rd,nbin=50,q=0.1,Rmin=1E-3,Rmax=10)
+
+        #DUST STATISTICS (PHYSICAL)
+        rdp,Acp,rqp=radialDistribution(rdust,Rd,nbin=50,q=0.1,Rmin=1E-3,Rmax=10)
+        rqs+=[rqp]
         
+        #BOULDERS STATISTICS
         rb,Ab,rqb=radialDistribution(rbould,Rb,nbin=30,q=0.1,Rmin=10,Rmax=500,
                                      weights=ones_like(RBINS))
         dqb=angsize(rqb,dist)
@@ -472,18 +527,237 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
     data[:,1]=array(dmaxs)
     data[:,2]=array(dqs)
     data[:,3]=array(dqbs)
-    savetxt("output/expansion-%s-%s.dat"%(dateini,did),data)
+    datafile="output/expansion-%s-%05d.dat"%(dateini,did)
+
+    print "Inglow = %e, Outglow = %e"%(inglow,outglow)
+    print "Saving data in %s..."%datafile
+    savetxt(datafile,data)
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #PLOT
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    ax.plot(tes,dmaxs,label='Large')
-    ax.plot(tes,dqs,label='Dust')
-    ax.plot(tes,dqbs,label='Boulders')
+    ax.plot(tes,2*array(dmaxs),label='Large')
+    ax.plot(tes,2*array(dqs),label='Dust')
+    ax.plot(tes,2*array(dqbs),label='Boulders')
+
+    #PHYSICAL
+    axp.plot(tes,2*array(rqs),label='Dust')
     
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #DECORATION
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ndates=len(dates)
+    pdates=ndates/10
+    xt=[]
+    xtl=[]
+    for i in xrange(0,ndates,pdates):
+        xt+=[ts[i]+tini]
+        d=dates[i]
+        xtl+=["-".join(d.split()[1:3])]
+    
+    for axi in [ax,axp]:
+        axi.set_xticks(xt)
+        axi.set_xticklabels(xtl,rotation=-20,
+                           rotation_mode='anchor',
+                           horizontalalignment='left',
+                           fontsize=12)
+
+        axi.set_yscale("log")
+        axi.legend(loc='lower right')
+
+    ax.set_ylabel("$2d$ (arcsec)")
+    axp.set_ylabel("$2r$ (km)")
+
+    for axi in [ax,axp]:
+        dMin,dMax=axi.get_ylim()
+        
+        axi.axvline(tini,linestyle='--',color='k')
+        axi.text(tini,1.1*dMax,"Disruption",horizontalalignment='left')
+        
+        axi.axvline(tperh+tini,linestyle='--',color='k')
+        axi.text(tperh+tini,1.1*dMax,"Perihelion",horizontalalignment='left')
+        
+        axi.axvline(tperg+tini,linestyle='--',color='k')
+        axi.text(tperg+tini,1.1*dMax,"Perigee",horizontalalignment='right')
+        
+        axi.axvspan(inglow,outglow,color='k',alpha=0.2)
+    
+    ax.text((inglow+outglow)/2,1.5*10E-3,"Solar glare",fontsize=14,
+            horizontalalignment='center')
+    ax.set_ylim((10E-3,dMax))
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #SAVE FIGURE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    print "Saving %s..."%figfile1
+    fig1.savefig(figfile1);
+    print "Saving %s..."%figfile2
+    fig2.savefig(figfile2);
+
+def DistanceSizeDistribution(iobs=0,**args):
+    """
+    Calculate the distribution of area as a function of angular
+    distance to debris zone center
+    """
+    iobs=ncom-1
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #PREPARE FIGURE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    dateini="_".join(dates[0].split()[0:3])
+    dateend="_".join(dates[iobs].split()[0:3])
+    figfile="animation/distancedist-%s:%s.png"%(dateini,dateend)
+    print "Creating: %s"%figfile
+    plt.close("all")
+    fig=plt.figure(figsize=(8,8))
+    ax=fig.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
+    
+    #TIME OF SNAPSHOT
+    t=ts[iobs]
+    date=dates[iobs]
+    print "Snapshot: %d"%iobs
+    rcm=xcm_orb[iobs,0:3]
+
+    #DISTANCE TO COMET FROM EARTH AND FROM SUN
+    dist=abs(xcm_obs[iobs,2])
+    rdist=NORM(xcm_orb[iobs,0:3])
+    
+    #POSITION OF DUST PARTICLES
+    xdust=xs_orb[nlarge:,iobs,:]
+    surviving=(xdust[:,6]>0)
+    xdust=xdust[surviving]
+    nd=xdust.shape[0]
+    for i in xrange(0,nd):
+        xdust[i,0:3]=xdust[i,0:3]-rcm
+    rdust=array([NORM(xdust[i,0:3]) for i in xrange(0,nd)])
+    rdust*=UL/1E3
+    rdmax=rdust.max()
+    print "Maximum distance of a dust particles: %e"%rdmax
+    irdmax=rdust.argmax()
+    Rdmax=(xdust[irdmax,6]*UM/(4*pi/3*rhoc))**(1./3)
+    print "Size of further away dust particle: %e"%Rdmax
+        
+    #STATISTICS ACCORDING TO SIZE
+    logRd=log10((xdust[:,6]*UM/(4*pi/3*rhoc))**(1./3))
+    logRdmin=logRd.min()
+    logRdmax=logRd.max()*0
+    print "Extreme sizes: (%e,%e)"%(logRdmin,logRdmax)
+
+    dlogR=0.5
+    logRdrange=arange(floor(logRdmin),ceil(logRdmax),dlogR)
+    hmax=0
+    for logR in logRdrange:
+        print "Interval %e to %e :"%(logR,logR+dlogR),
+        cond=(logRd>logR)*(logRd<(logR+dlogR))
+        logRdsel=logRd[cond]
+        rdustsel=rdust[cond]
+        nd=rdustsel.shape[0]
+        print nd
+        if nd>0:
+            logrdust=log10(rdustsel)
+        h,b=histogram(logrdust,10)
+        h=h/(1.0*nd)
+        F=[]
+        Fi=0
+        for i in xrange(0,h.shape[0]):
+            Fi+=h[i]
+            F+=[1-Fi]
+        ax.plot(b[:-1],F,label=r'$10^{%.2f}$ m'%(logR))
+        
+    logrc=log10(1.97E6)
+    ax.axvline(logrc,linestyle='--',color='k')
+    ax.text(logrc*1.01,0.95,'Measured cloud dust',
+            rotation=270,
+            horizontalalignment='left',
+            verticalalignment='top')
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #DECORATION
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ax.legend(loc='lower left')
+    ax.set_title("Dust distribution at %s"%date)
+    ax.set_ylim((0,1))
+    ax.set_xlabel(r"$\log(r/{\rm km})$")
+    ax.set_ylabel(r"$F(\log\,r)$")
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #SAVE FIGURE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    print "Saving %s..."%figfile
+    fig.savefig(figfile);
+
+def ExpansionComparison(files="",**args):
+    """
+    """
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #PREPARE FIGURE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    figfile="animation/expansion-comparison-new.png"
+    print "Creating: %s"%figfile
+    fig=plt.figure(figsize=(8,8))
+    plt.close("all")
+    ax=fig.add_axes([0.1,0.1,0.8,0.8],axisbg='w')
+
+    
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #TIME AND DATE
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #CALCULATE PERIHELION AND PERIGEO
+    dperh=1E100
+    dperg=1E100
+    tperg=0
+    tperh=0
+    for iobs in xrange(0,ncom):
+        t=ts[iobs]
+        dist=abs(xcm_obs[iobs,2])
+        rdist=NORM(xcm_orb[iobs,0:3])
+        if dist<=dperg:
+            tperg=t
+            dperg=dist
+        if rdist<=dperh:
+            tperh=t
+            dperh=rdist
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #LOAD FILES
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    if files=="":
+        print "You should provide a list of files."
+        exit(1)
+    
+    files=files.split(",")
+    for file in files:
+        print "Plotting file '%s' file..."%file
+        data=loadtxt(file)
+        tes=data[:,0]
+        dmaxs=data[:,1]
+        dqs=data[:,2]
+        dqbs=data[:,3]
+
+        parts=file.split("-")
+
+        #line,=ax.plot(tes,2*array(dmaxs),color='k',linewidth=2,label='%s'%parts[2])
+        #color=line.getc('color')
+        #,label='%s'%parts[2]
+        line,=ax.plot(tes,2*array(dmaxs),linewidth=3,linestyle='-')
+        color=plt.getp(line,'color')
+        ax.plot(tes,2*array(dqs),linewidth=2,color=color,linestyle='--')
+        ax.plot(tes,2*array(dqbs),linewidth=1,color=color,linestyle='-.')
+    
+    ax.plot([15],[10E-3],color='k',linewidth=3,linestyle='-',label='Large fragments')
+    ax.plot([15],[10E-3],color='k',linewidth=2,linestyle='--',label='Dust')
+    ax.plot([15],[10E-3],color='k',linewidth=1,linestyle='-.',label='Boulders')
+
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #DECORATION
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ax.text(1.02,1.0,"Ferrin & Zuluaga (in prep. 2013)",
+            verticalalignment='top',horizontalalignment='left',
+            rotation=270,fontsize=10,
+            transform=ax.transAxes)
+
+    ax.legend(loc='best')
     ndates=len(dates)
     pdates=ndates/10
     xt=[]
@@ -499,11 +773,15 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
                        fontsize=12)
 
     ax.set_yscale("log")
-    ax.legend(loc='lower right')
-
-    ax.set_ylabel("$d$ (arcsec)")
+    ax.set_ylabel("$2d$ (arcsec)")
 
     dMin,dMax=ax.get_ylim()
+
+    dMax=3600
+
+    inglow=1.389323e+01
+    outglow=1.392745e+01
+
     ax.axvline(tini,linestyle='--',color='k')
     ax.text(tini,1.1*dMax,"Disruption",horizontalalignment='left')
 
@@ -511,8 +789,14 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
     ax.text(tperh+tini,1.1*dMax,"Perihelion",horizontalalignment='left')
 
     ax.axvline(tperg+tini,linestyle='--',color='k')
-    ax.text(tperg+tini,1.1*dMax,"Perigeo",horizontalalignment='right')
+    ax.text(tperg+tini,1.1*dMax,"Perigee",horizontalalignment='right')
 
+    ax.axvspan(inglow,outglow,color='k',alpha=0.2)
+    ax.text((inglow+outglow)/2,1.5*10E-3,"Solar glare",fontsize=14,
+            horizontalalignment='center')
+
+    #ax.set_xlim((tini,tperg+tini+2))
+    ax.set_xlim((tini,tini+50/365.25))
     ax.set_ylim((10E-3,dMax))
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -524,9 +808,14 @@ def ExpansionEvolution(did='0000',imax=ncom,**args):
 #############################################################
 #SELECT TASK
 #############################################################
+#ExpansionComparison(files='output/version2/expansion-2013_NOV_13-00001.dat,output/version2/expansion-2013_NOV_13-00002.dat,output/version2/expansion-2013_NOV_13-00003.dat,output/version2/expansion-2013_NOV_13-00004.dat,output/version2/expansion-2013_NOV_13-00005.dat,output/version2/expansion-2013_NOV_13-00006.dat,output/version2/expansion-2013_NOV_13-00007.dat')
+#ExpansionComparison()
+#exit(0)
+#ExpansionEvolution(imax=10)
 #ExpansionEvolution()
 #AreaDistribution()
-#exit(0)
+DistanceSizeDistribution()
+exit(0)
 
 try:
     task=argv[1]
@@ -535,6 +824,8 @@ except:
 
 try:
     options=argv[2]
+    options=options.replace("\n","")
+    options=options.replace(" ","")
 except:
     options=""
 

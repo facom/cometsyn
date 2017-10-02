@@ -20,12 +20,12 @@
 //**************************************************
 //BEHAVIOR
 //**************************************************
-//#define COMET_PROPERTIES_ONLY
+#define COMET_PROPERTIES_ONLY
 
 //DRYING FUNCTION
-//#define DRYING_NULL
+#define DRYING_NULL
 //#define DRYING_CONSTANT
-#define DRYING_EXPONENTIAL
+//#define DRYING_EXPONENTIAL
 
 //**************************************************
 //FORCE
@@ -35,12 +35,12 @@
 #define RADIATION_FORCE /*RADIATION FORCE*/
 #define PR_CORRECTION /*POYINTING-ROBERTSON CORRECTION*/
 #define ROCKET_FORCE /*EVAPORATION RECOIL*/
-#define RMIN_ROCKET 1.0 /*m*/ /*MINIMUM SIZE FOR ROCKET FORCE*/
+#define RMIN_ROCKET 10.0 /*m*/ /*MINIMUM SIZE FOR ROCKET FORCE*/
 
 //**************************************************
 //INITIAL CONDITIONS
 //**************************************************
-//#define RADIALMODE /*DEBRIS HAVE A RADIAL VELOCITY*/
+#define RADIALMODE /*DEBRIS HAVE A RADIAL VELOCITY*/
 
 //**************************************************
 //OUTPUT
@@ -146,8 +146,8 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //TIME
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  Tini_Date="11/12/2013 00:00:00.000 UTC";
-  Tend_Date="12/28/2013 00:00:00.000 UTC";
+  Tini_Date="11/14/2013 00:43:00.000 UTC";
+  Tend_Date="11/28/2013 17:24:00.000 UTC";
 
   str2et_c(Tini_Date,&tini);
   str2et_c(Tend_Date,&tend);
@@ -178,27 +178,32 @@ int main(int argc,char *argv[])
   AxisXY=0.0*D2R;
 
   //DENSITY OF ROCKY FRAGMENTS
-  RHODUST=2E3 /*kg/m^3*//(UM/(UL*UL*UL));
+  RHODUST=2.3E3 /*kg/m^3*//(UM/(UL*UL*UL));
+  //RHOCOMET=0.6E3 /*kg/m^3*//(UM/(UL*UL*UL));
   RHOCOMET=0.6E3 /*kg/m^3*//(UM/(UL*UL*UL));
 
   //FRACTION OF HEALTHY MASS IN ROCK+DUST
   /*See Greenberg (1998) "Making a cometary nucleus"*/
-  FR=0.26;
+  //FR=0.26;
+  FR=0.5;
 
   //DENSITY OF VOLATILES
-  RHOVOLATILES=(1-FR)/(1/RHOCOMET-FR/RHODUST);
+  if((1/RHOCOMET-FR/RHODUST)>0)
+    RHOVOLATILES=(1-FR)/(1/RHOCOMET-FR/RHODUST);
+  else
+    RHOVOLATILES=1;
 
   //CORE TOTAL RADIUS 
-  Rc=2 /*km*/ *1E3/UL;
+  Rc=0.7 /*km*/ *1E3/UL;
 
   //SIZE OF INITIAL REGION OF FRAGMENTS AND DEBRIS
   fc=1.5;
 
   //PERIOD OF ROTATION
-  Prot=3*HOURS /*secs*/ /UT;
+  Prot=3.6*HOURS /*secs*/ /UT;
 
   //NUMBER OF LARGE FRAGMENTS
-  nlarge=30;
+  nlarge=7;
   flarge=1E0;
 
   //EXPONENT OF FRAGMENT DISTRIBUION
@@ -210,12 +215,12 @@ int main(int argc,char *argv[])
 
   //MINIMUM SIZE OF BOULDERS
   Rboulder_min=10 /*m*//UL;
-  fboulder=1E-3;
+  fboulder=1E-4;
 
   //NUMBER OF DUST TEST PARTICLES
-  ndust=1000;
+  ndust=10000;
   Rdust_min=1E-6 /*m*//UL;
-  Rdust_max=10.0 /*m*//UL;
+  Rdust_max=1E0 /*m*//UL;
 
   //THICK OF DEBRIS CRUST 
   Rdbmin=1.0*fc*Rc; /* Minimum radius for debris origin */
@@ -245,17 +250,13 @@ int main(int argc,char *argv[])
   fprintf(stdout,"\tLarge fragments: %d\n",nlarge);
   fprintf(stdout,"\tAverage mass of fragments: %e UM = %e ton\n",mp,mp*UM/1E3);
   fprintf(stdout,"\tAverage radius of fragments: %e UL = %e km\n",Rp,Rp*UL/1E3);
-  fprintf(stdout,"\tMinimum radius of large fragments: %e UL = %e km\n",
-	  Rlarge_min,Rlarge_min*UL/1E3);
-  fprintf(stdout,"\tMaximum radius of large fragments: %e UL = %e km\n",
-	  Rlarge_max,Rlarge_max*UL/1E3);
   
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //DERIVED PHYSICAL PROPERTIES
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   vesc=sqrt(2*GPROG*FR*Mc/Rc);
   vtan=2*PI*Rc/Prot;
-  double Omegamin=sqrt(4*PI*GPROG/3*RHODUST);
+  double Omegamin=sqrt(4*PI*GPROG/3*RHOCOMET);
   Pmin=2*PI/Omegamin;
 
   fprintf(stdout,"Cometary derived properties:\n");
@@ -291,17 +292,22 @@ int main(int argc,char *argv[])
   //////////////////////////////////////////
   //FRAGMENT PROPERTIES
   //////////////////////////////////////////
+  double Ac=4*PI*Rc*Rc,Ad;
+
   noFromfragments(nlarge,q,Rmin/Rc,Rmax/Rc,&no,&Mlarge);
   Mlarge*=Mc;
   Rpmax=radiusOveri(0,no,q,Rmax/Rc)*Rc;
   Rpmin=radiusOveri(nlarge,no,q,Rmax/Rc)*Rc;
+  Ad=Ac*no/fabs(3+q)*(1/pow(10/*m*//UL/Rc,-(3+q))-1/pow(Rpmax/Rc,-(3+q)));
   fprintf(stdout,"\tFragment distribution parameters: no = %e, q = %e\n",no,q);
   fprintf(stdout,"\tMass in large fragments: %e UM = %e kg = %e Mc\n",Mlarge,Mlarge*UM,Mlarge/Mc);
   fprintf(stdout,"\tLargest fragment: %e UL = %e m = %e Rc\n",
 	  Rpmax,Rpmax*UL,Rpmax/Rc);
   fprintf(stdout,"\tSmallest fragment: %e UL = %e m = %e Rc\n",
 	  Rpmin,Rpmin*UL,Rpmin/Rc);
-
+  fprintf(stdout,"\tTotal core area before disruption: %e m^2\n",Ac*UL*UL);
+  fprintf(stdout,"\tTotal area after disruption: %e UL^2 = %e m^2 = %e Ac\n",Ad,Ad*UL*UL,Ad/Ac);
+  
   //NUMBER OF BOULDERS
   Rboulder_max=Rpmin;
   nbould=fboulder*radiusNumber(Rboulder_min/Rc,Rboulder_max/Rc,no,q); 
@@ -346,6 +352,8 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //CENTRAL FRAGMENT
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  double Afrag,Atot=0;
+
   Mlarge=Mboulder=Mdust=Mtot=0;
   i=0;
   type[i]=1;
@@ -356,11 +364,14 @@ int main(int argc,char *argv[])
   xs[i][6]=Ms[i];
   Mlarge+=Ms[i];
   Mtot+=Ms[i];
+  Afrag=4*PI*Rs[i]*Rs[i]*UL*UL;
+  Atot+=Afrag;
   fprintf(ffrag,"\tFragment %d:\n",i);
   fprintf(ffrag,"\t\tType (1:large,2:debris): %d\n",(int)type[i]);
   fprintf(ffrag,"\t\tMass: %e UM = %e kg = %e Mc\n",Ms[i],Ms[i]*UM,Ms[i]/Mc);
   fprintf(ffrag,"\t\tCumulative mass: %e UM = %e kg = %e Mc\n",Mtot,Mtot*UM,Mtot/Mc);
   fprintf(ffrag,"\t\tRadius: %e UL = %e m = %e Rc\n",Rs[i],Rs[i]*UL,Rs[i]/Rc);
+  fprintf(ffrag,"\t\tArea : %e m^2\n",Afrag);
   fprintf(ffrag,"\t\tCartesian coordinates: ");
   fprintf_vec(ffrag,"%e ",xs[i],3);
   fprintf(ffrag,"\t\tState vector: ");
@@ -399,9 +410,12 @@ int main(int argc,char *argv[])
       idust++;
     }
     Mtot+=Ms[i];
+    Afrag=4*PI*Rs[i]*Rs[i]*UL*UL;
+    Atot+=Afrag;
 
     fprintf(ffrag,"\t\tType (1:large,2:boulders,3:dust): %d\n",(int)type[i]);
     fprintf(ffrag,"\t\tRadius: %e UL = %e m = %e Rc\n",Rs[i],Rs[i]*UL,Rs[i]/Rc);
+    fprintf(ffrag,"\t\tArea : %e m^2\n",Afrag);
     fprintf(ffrag,"\t\tDensity: %e UM/UL^3 = %e kg/m^3\n",rhos[i],rhos[i]*UM/(UL*UL*UL));
     fprintf(ffrag,"\t\tMass: %e UM = %e kg = %e Mc\n",Ms[i],Ms[i]*UM,Ms[i]/Mc);
     fprintf(ffrag,"\t\tCumulative mass: %e UM = %e kg = %e Mc\n",Mtot,Mtot*UM,Mtot/Mc);
@@ -518,6 +532,8 @@ int main(int argc,char *argv[])
     fprintf_state(ffrag,"%e ",xs[i]);
 
   }
+  fprintf(ffrag,"\tTotal mass after disruption: %e UM = %e kg\n",Mtot,Mtot*UM);
+  fprintf(ffrag,"\tTotal area after disruption: %e m^2\n",Atot);
   fclose(ffrag);
   
   //SAVE FRAGMENT DATA

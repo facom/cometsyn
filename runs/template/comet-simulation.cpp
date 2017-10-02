@@ -23,9 +23,9 @@
 //#define COMET_PROPERTIES_ONLY
 
 //DRYING FUNCTION
-//#define DRYING_NULL
+#define DRYING_NULL
 //#define DRYING_CONSTANT
-#define DRYING_EXPONENTIAL
+//#define DRYING_EXPONENTIAL
 
 //**************************************************
 //FORCE
@@ -146,7 +146,7 @@ int main(int argc,char *argv[])
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //TIME
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  Tini_Date="11/12/2013 00:00:00.000 UTC";
+  Tini_Date="11/13/2013 00:00:00.000 UTC";
   Tend_Date="12/28/2013 00:00:00.000 UTC";
 
   str2et_c(Tini_Date,&tini);
@@ -179,14 +179,19 @@ int main(int argc,char *argv[])
 
   //DENSITY OF ROCKY FRAGMENTS
   RHODUST=2E3 /*kg/m^3*//(UM/(UL*UL*UL));
-  RHOCOMET=0.6E3 /*kg/m^3*//(UM/(UL*UL*UL));
+  //RHOCOMET=0.6E3 /*kg/m^3*//(UM/(UL*UL*UL));
+  RHOCOMET=2E3 /*kg/m^3*//(UM/(UL*UL*UL));
 
   //FRACTION OF HEALTHY MASS IN ROCK+DUST
   /*See Greenberg (1998) "Making a cometary nucleus"*/
-  FR=0.26;
+  //FR=0.26;
+  FR=1.0;
 
   //DENSITY OF VOLATILES
-  RHOVOLATILES=(1-FR)/(1/RHOCOMET-FR/RHODUST);
+  if((1/RHOCOMET-FR/RHODUST)>0)
+    RHOVOLATILES=(1-FR)/(1/RHOCOMET-FR/RHODUST);
+  else
+    RHOVOLATILES=1;
 
   //CORE TOTAL RADIUS 
   Rc=2 /*km*/ *1E3/UL;
@@ -245,10 +250,6 @@ int main(int argc,char *argv[])
   fprintf(stdout,"\tLarge fragments: %d\n",nlarge);
   fprintf(stdout,"\tAverage mass of fragments: %e UM = %e ton\n",mp,mp*UM/1E3);
   fprintf(stdout,"\tAverage radius of fragments: %e UL = %e km\n",Rp,Rp*UL/1E3);
-  fprintf(stdout,"\tMinimum radius of large fragments: %e UL = %e km\n",
-	  Rlarge_min,Rlarge_min*UL/1E3);
-  fprintf(stdout,"\tMaximum radius of large fragments: %e UL = %e km\n",
-	  Rlarge_max,Rlarge_max*UL/1E3);
   
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //DERIVED PHYSICAL PROPERTIES
